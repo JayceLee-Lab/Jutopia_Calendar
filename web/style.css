@@ -111,3 +111,5 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 .search-result{display:flex;flex-direction:column;gap:5px;border:1px solid #dfe6d8;background:#fff;border-radius:9px;padding:13px;text-align:left;overflow-wrap:anywhere}
 .search-result:hover{border-color:#9bb588}.search-result strong{font-size:1rem}.search-result span,.search-result small{font-size:.875rem;color:#718167}
 @media(max-width:600px){.registration-tools{margin-left:auto}.registration-tools .primary{font-size:.9375rem;padding:9px 13px}}
+
+.calendar-toolbar{flex-direction:column;align-items:stretch;gap:14px}.calendar-heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}.calendar-heading-row .month-controls{min-width:0;flex-wrap:wrap}.calendar-heading-row .search-button{margin-left:auto;flex-shrink:0}.calendar-actions{width:100%;justify-content:flex-end}

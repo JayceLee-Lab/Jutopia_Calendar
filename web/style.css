@@ -126,3 +126,6 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 
 .brand-copy{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:9px;max-width:23em}.brand-copy .brand-title{max-width:none;font-weight:650;color:#293e34;line-height:1.45}.brand-copy .brand-heart{font-size:.875rem;color:#b2b98d;line-height:1;align-self:center}.brand-copy .brand-flower{display:block;width:1.55rem;height:1.55rem;color:#aaba78;transform:none;flex-shrink:0}
 @media(max-width:600px){.brand-copy{column-gap:4px;max-width:100%}.brand-copy .brand-heart{font-size:.6875rem}.brand-copy .brand-flower{width:1.125rem;height:1.125rem}}
+
+.brand-copy{grid-template-columns:minmax(0,1fr) auto;column-gap:10px}.brand-copy .brand-title{font-weight:750;letter-spacing:-.055em}.brand-copy .brand-flower{width:1.5rem;height:1.5rem}
+@media(max-width:600px){.brand-copy{column-gap:6px}.brand-copy .brand-flower{width:1.125rem;height:1.125rem}}

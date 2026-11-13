@@ -240,6 +240,20 @@ test('two-day periods spanning Saturday and Sunday render one segment in each we
   const before=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`)).periods[0],after=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${15+i}`)).periods[0];assert.deepEqual([before.startColumn,before.endColumn,before.starts,before.ends],[6,6,true,false]);assert.deepEqual([after.startColumn,after.endColumn,after.starts,after.ends],[0,0,false,true]);
 });
 
+test('visit-line layout includes single-day visits without duplicating them and separates overlaps',()=>{
+  const days=Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`),visits=[
+    {id:'long',start:'2026-11-09',end:'2026-11-12'},
+    {id:'single',start:'2026-11-10',end:'2026-11-10'},
+    {id:'same-day',start:'2026-11-10',end:'2026-11-10'},
+    {id:'after',start:'2026-11-13',end:'2026-11-13'}
+  ];
+  const layout=layoutWeekEvents(visits,days,{singleDayAsBars:true}),byId=Object.fromEntries(layout.periods.map(segment=>[segment.event.id,segment]));
+  assert.equal(layout.periods.length,4);assert.ok(layout.singles.every(items=>items.length===0));assert.equal(layout.eventRowCount,3);
+  assert.deepEqual([byId.single.startColumn,byId.single.endColumn],[2,2]);
+  assert.equal(new Set([byId.long.lane,byId.single.lane,byId['same-day'].lane]).size,3);
+  assert.equal(byId.after.lane,byId.long.lane);
+});
+
 test('grandmother colors are fixed and reserved shades are rejected for other categories',async()=>{
   const env=database();for(const [kind,color] of [['suwon','peach'],['ulsan','sage']]){assert.equal((await request(env,'POST',{...event,kind,color:'blue'})).status,201);const row=(await (await request(env)).json()).events.find(e=>e.kind===kind);assert.equal(row.color,color);assert.equal(eventColor({...row,color:'pink'}),color);}
   for(const kind of ['birthday','family'])for(const color of ['peach','sage'])assert.equal((await request(env,'POST',{...event,kind,color})).status,400);

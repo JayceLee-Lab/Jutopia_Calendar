@@ -129,3 +129,6 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 
 .brand-copy{grid-template-columns:minmax(0,1fr) auto;column-gap:10px}.brand-copy .brand-title{font-weight:750;letter-spacing:-.055em}.brand-copy .brand-flower{width:1.5rem;height:1.5rem}
 @media(max-width:600px){.brand-copy{column-gap:6px}.brand-copy .brand-flower{width:1.125rem;height:1.125rem}}
+
+.brand-copy{grid-template-columns:auto minmax(0,1fr) auto;transform:translateY(13px)}.brand-copy .brand-heart{display:block;width:1.5rem;height:1.5rem;color:#aaba78;transform:none}.brand-title-main{font-weight:750}.brand-title-light{font-weight:500}
+@media(max-width:600px){.brand-copy{transform:translateY(10px)}.brand-copy .brand-heart{width:1.125rem;height:1.125rem}}

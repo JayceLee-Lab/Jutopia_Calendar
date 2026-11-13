@@ -68,3 +68,32 @@ test('API accepts and preserves an explicitly unselected icon',async()=>{
   assert.equal((await request(env,'PUT',{...saved,title:'아이콘 없는 일정 수정'})).status,200);
   assert.equal((await (await request(env)).json()).events[0].icon,'');
 });
+
+test('editing recurrence rebuilds only selected and future occurrences and preserves history',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'biweekly',until:'2026-12-31'});
+  let rows=(await (await request(env)).json()).events;assert.equal(rows.length,4);assert.equal(new Set(rows.map(e=>e.series_id)).size,1);assert.ok(rows[0].series_id);assert.ok(rows.every(e=>e.repeat_rule==='biweekly'));
+  const past={...rows[0]},selected={...rows[1]};
+  assert.equal((await request(env,'PUT',{...selected,repeat:'yearly',until:'2028-12-31'})).status,200);
+  rows=(await (await request(env)).json()).events;
+  assert.deepEqual(rows.map(e=>e.start),['2026-11-13','2026-11-27','2027-11-27','2028-11-27']);
+  const preserved=rows.find(e=>e.id===past.id);assert.equal(preserved.title,past.title);assert.equal(preserved.note,past.note);assert.equal(preserved.repeat_until,'2026-11-26');
+  const changed=rows.find(e=>e.id===selected.id);assert.equal(changed.repeat_rule,'yearly');assert.notEqual(changed.series_id,past.series_id);
+  assert.equal((await request(env,'PUT',{...changed,repeat:'none'})).status,200);
+  rows=(await (await request(env)).json()).events;assert.deepEqual(rows.map(e=>e.start),['2026-11-13','2026-11-27']);assert.equal(rows[1].repeat_rule,'none');
+});
+test('editing title only preserves a series, and stale repeat edits cannot delete or insert records',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'biweekly',until:'2026-12-15'});
+  const original=(await (await request(env)).json()).events,first=original[0];
+  assert.equal((await request(env,'PUT',{...first,title:'선택한 일정만 수정',repeat:'biweekly',until:first.repeat_until})).status,200);
+  let rows=(await (await request(env)).json()).events;assert.equal(rows.length,3);assert.equal(rows[1].title,event.title);
+  assert.equal((await request(env,'PUT',{...first,repeat:'none'})).status,409);
+  rows=(await (await request(env)).json()).events;assert.equal(rows.length,3);
+  assert.equal((await (await request(env,'GET',null,familyB)).json()).events.length,0);
+});
+test('a legacy independent record can gain recurrence without touching other independent records',async()=>{
+  const env=database();await request(env,'POST',event);await request(env,'POST',{...event,start:'2026-11-27',end:'2026-11-29',title:'기존 별도 일정'});
+  const first=(await (await request(env)).json()).events[0];
+  assert.equal((await request(env,'PUT',{...first,repeat:'biweekly',until:'2026-12-15'})).status,200);
+  const rows=(await (await request(env)).json()).events;assert.equal(rows.length,4);assert.ok(rows.some(e=>e.title==='기존 별도 일정'&&e.series_id===''));
+  assert.equal((await request(env,'PUT',{...rows[0],repeat:'biweekly',until:'2026-01-01'})).status,400);assert.equal((await (await request(env)).json()).events.length,4);
+});

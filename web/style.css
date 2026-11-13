@@ -113,3 +113,6 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 @media(max-width:600px){.registration-tools{margin-left:auto}.registration-tools .primary{font-size:.9375rem;padding:9px 13px}}
 
 .calendar-toolbar{flex-direction:column;align-items:stretch;gap:14px}.calendar-heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}.calendar-heading-row .month-controls{min-width:0;flex-wrap:wrap}.calendar-heading-row .search-button{margin-left:auto;flex-shrink:0}.calendar-actions{width:100%;justify-content:flex-end}
+
+.topbar .brand{max-width:none;flex:0 1 auto;gap:12px}.brand-logo{flex-shrink:0}.brand-title{max-width:10em;font-size:.875rem;line-height:1.6;font-weight:550;letter-spacing:-.04em;color:#597050;word-break:keep-all;overflow-wrap:anywhere}
+@media(max-width:600px){.topbar .brand{flex:1;min-width:0;gap:8px}.brand-title{font-size:.8125rem;min-width:0;max-width:10em}}

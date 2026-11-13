@@ -136,3 +136,5 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 .brand-copy .brand-title-staggered{display:flex;flex-direction:column;gap:3px;min-width:10.5em;max-width:100%;line-height:1.5}.brand-title-first{display:block;text-align:left}.brand-title-second{display:block;text-align:right;padding-left:2em}
 @media(max-width:600px){.brand-copy .brand-title-staggered{min-width:0;width:100%;gap:2px}.brand-title-second{padding-left:1em}}
 .brand-title-main{font-size:1.08em}
+.brand-title-second{transform:translateX(.65em)}
+@media(max-width:600px){.brand-title-second{transform:translateX(.4em)}}

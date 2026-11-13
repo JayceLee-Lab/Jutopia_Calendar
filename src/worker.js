@@ -21,7 +21,7 @@ export default {
       const family=await hash(code);
       if (request.method==='GET') {
         const {results}=await env.DB.prepare('SELECT id,title,kind,icon,start,end,note,calendar_type,lunar_start,color,series_id,repeat_rule,repeat_until,revision,updated_at FROM events WHERE family = ? ORDER BY start,title').bind(family).all();
-        return json({events:results});
+        return json({events:results.map(event=>({...event,color:eventColor(event)}))});
       }
       if (Number(request.headers.get('content-length'))>16384) return json({error:'일정 내용이 너무 깁니다.'},413);
       const raw=await request.text(); if (raw.length>16384) return json({error:'일정 내용이 너무 깁니다.'},413);
@@ -46,8 +46,10 @@ export default {
       if (!['POST','PUT'].includes(request.method)) return json({error:'지원하지 않는 요청입니다.'},405);
       const title=typeof body.title==='string'?body.title.trim():'';
       if (!title || title.length>80 || (typeof body.kind!=='string' || !Object.hasOwn(kinds,body.kind)) || !icons.includes(body.icon) || !validDate(body.start) || !validDate(body.end) || body.end<body.start || typeof body.note!=='string' || body.note.length>1000) return json({error:'제목, 날짜, 메모를 확인해 주세요.'},400);
-      const calendarType=body.calendar_type??'solar',color=body.color??'';
-      if(!['solar','lunar'].includes(calendarType)||typeof color!=='string'||(color!==''&&!Object.hasOwn(colors,color)))return json({error:'달력 종류와 색상을 확인해 주세요.'},400);
+      const calendarType=body.calendar_type??'solar',requestedColor=body.color??'';
+      const color=eventColor({...body,color:requestedColor});
+      if(!['solar','lunar'].includes(calendarType)||typeof requestedColor!=='string'||(requestedColor!==''&&!Object.hasOwn(colors,requestedColor)))return json({error:'달력 종류와 색상을 확인해 주세요.'},400);
+      if(!['suwon','ulsan'].includes(body.kind)&&['sage','peach'].includes(requestedColor))return json({error:'살구와 세이지는 할머니 방문 전용 색상입니다. 다른 색상을 선택해 주세요.'},400);
       const lunar=calendarType==='lunar'?readLunar(body.lunar_start):null;
       if(calendarType==='lunar'&&(!lunar||lunarToSolar(lunar)!==body.start))return json({error:'음력 날짜와 변환된 양력 날짜가 일치하지 않습니다.'},400);
       const event={title,kind:body.kind,icon:body.icon,start:body.start,end:body.end,note:body.note.trim(),calendar_type:calendarType,lunar_start:lunar?JSON.stringify(lunar):'',color}, now=new Date().toISOString();

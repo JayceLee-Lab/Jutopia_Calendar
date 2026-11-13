@@ -1,10 +1,11 @@
 import { lunarMonths } from './lunar-data.js';
 export const MIN_YEAR = 2020, MAX_YEAR = 2050;
 export const icons = ['','🏡','🌷','🎂','🎉','🍽️','✈️','🏥','🎒','💛','⭐','🎈','🎁','👨‍👩‍👧‍👦','🚗','📚','🎵','⚽','🛍️','🐾','🍀'];
-export const kinds = { suwon: { label: '수원 할머니', color: 'sage', icon: '🌷' }, ulsan: { label: '울산 할머니', color: 'peach', icon: '🏡' }, birthday: { label: '생일', color: 'lavender', icon: '🎂' }, family: { label: '가족 행사', color: 'blue', icon: '🎉' } };
+export const kinds = { suwon: { label: '수원 할머니', color: 'peach', icon: '🌷' }, ulsan: { label: '울산 할머니', color: 'sage', icon: '🏡' }, birthday: { label: '생일', color: 'lavender', icon: '🎂' }, family: { label: '가족 행사', color: 'blue', icon: '🎉' } };
 export const repeatLabels = {none:'반복 안 함',weekly:'매주',monthly:'매월',yearly:'매년'};
 export const colors = {sage:'세이지',peach:'살구',lavender:'라벤더',blue:'하늘',pink:'분홍',butter:'버터',mint:'민트',lilac:'라일락',aqua:'아쿠아',sand:'모래'};
-export function eventColor(event) {return Object.hasOwn(colors,event.color)?event.color:kinds[event.kind].color;}
+export function eventColor(event) {if(event.kind==='suwon'||event.kind==='ulsan')return kinds[event.kind].color;return Object.hasOwn(colors,event.color)&&!['sage','peach'].includes(event.color)?event.color:kinds[event.kind].color;}
+export function isGrandmaEvent(event){return event.kind==='suwon'||event.kind==='ulsan';}
 export function readLunar(value) {try {return typeof value==='string'?JSON.parse(value):value;} catch {return null;}}
 export function lunarToSolar(value) {
   const lunar=readLunar(value);

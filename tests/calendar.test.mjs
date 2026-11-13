@@ -5,7 +5,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {validDate,expandEvent,monthCells,upcoming,lunarToSolar,solarToLunar,eventColor,defaultRepeatUntil,layoutWeekEvents} from '../src/calendar.js';
 import worker from '../dist/server/index.js';
-const event={title:'수원 할머니 방문',kind:'suwon',icon:'🌷',start:'2026-11-13',end:'2026-11-15',note:'아이들과 함께'};
+const event={title:'가족 일정',kind:'family',icon:'🌷',start:'2026-11-13',end:'2026-11-15',note:'아이들과 함께'};
 const holidays=JSON.parse(readFileSync('data/holidays.json','utf8'));
 test('all months through 2035 have complete Sunday-first calendar grids',()=>{for(let y=2020;y<=2035;y++)for(let m=0;m<12;m++){const cells=monthCells(y,m);assert.equal(cells.length%7,0);assert.equal(cells.filter(c=>!c.outside).length,new Date(y,m+1,0).getDate());assert.equal(new Date(cells[0].date+'T12:00').getDay(),0);}});
 test('invalid dates and out-of-range dates are rejected',()=>{assert.equal(validDate('2026-02-29'),false);assert.equal(validDate('2051-01-01'),false);assert.equal(validDate('2028-02-29'),true);});
@@ -24,7 +24,7 @@ test('schema upgrade preserves existing records, revisions, and original colors'
   const db=new DatabaseSync(':memory:');db.exec(readFileSync('migrations/0001_calendar.sql','utf8'));
   db.prepare('INSERT INTO events(id,family,title,kind,icon,start,end,note,revision,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run('old-record','existing-family','기존 가족 기록','ulsan','🏡','2026-11-13','2026-11-14','보존할 메모',7,'2026-11-01');
   db.exec(readFileSync('migrations/0002_lunar_colors.sql','utf8'));
-  const row=db.prepare('SELECT * FROM events').get();assert.equal(row.title,'기존 가족 기록');assert.equal(row.note,'보존할 메모');assert.equal(row.revision,7);assert.equal(row.calendar_type,'solar');assert.equal(row.lunar_start,'');assert.equal(eventColor(row),'peach');
+  const row=db.prepare('SELECT * FROM events').get();assert.equal(row.title,'기존 가족 기록');assert.equal(row.note,'보존할 메모');assert.equal(row.revision,7);assert.equal(row.calendar_type,'solar');assert.equal(row.lunar_start,'');assert.equal(eventColor(row),'sage');
 });
 test('Korean lunar conversion agrees with all bundled lunar public holidays through 2035',()=>{
   for(let year=2020;year<=2035;year++){
@@ -147,11 +147,11 @@ test('one-time data maintenance backs up originals, converts fortnightly to week
 });
 
 test('series scope applies changed color/icon to all occurrences while preserving dates and custom content',async()=>{
-  const env=database();await request(env,'POST',{...event,color:'sage',repeat:'weekly',until:'2026-11-27'});await request(env,'POST',{...event,title:'별도 일정',color:'peach'});await request(env,'POST',{...event,color:'butter',repeat:'weekly',until:'2026-11-27'},familyB);
+  const env=database();await request(env,'POST',{...event,color:'mint',repeat:'weekly',until:'2026-11-27'});await request(env,'POST',{...event,title:'별도 일정',color:'sand'});await request(env,'POST',{...event,color:'butter',repeat:'weekly',until:'2026-11-27'},familyB);
   let all=(await (await request(env)).json()).events,group=all.filter(e=>e.series_id),first=group[0];
   await request(env,'PUT',{...first,title:'개별 제목',note:'개별 메모'});all=(await (await request(env)).json()).events;group=all.filter(e=>e.series_id);const selected=group[1],dates=group.map(e=>[e.id,e.start,e.end,e.lunar_start,e.repeat_until]);
   const response=await request(env,'PUT',{...selected,color:'blue',icon:'⭐',apply_scope:'series'});assert.equal(response.status,200);assert.equal((await response.json()).updated_count,3);
-  all=(await (await request(env)).json()).events;group=all.filter(e=>e.series_id);assert.ok(group.every(e=>e.color==='blue'&&e.icon==='⭐'));assert.deepEqual(group.map(e=>[e.id,e.start,e.end,e.lunar_start,e.repeat_until]),dates);assert.equal(group[0].title,'개별 제목');assert.equal(group[0].note,'개별 메모');assert.equal(all.find(e=>!e.series_id).color,'peach');assert.ok((await (await request(env,'GET',null,familyB)).json()).events.every(e=>e.color==='butter'));
+  all=(await (await request(env)).json()).events;group=all.filter(e=>e.series_id);assert.ok(group.every(e=>e.color==='blue'&&e.icon==='⭐'));assert.deepEqual(group.map(e=>[e.id,e.start,e.end,e.lunar_start,e.repeat_until]),dates);assert.equal(group[0].title,'개별 제목');assert.equal(group[0].note,'개별 메모');assert.equal(all.find(e=>!e.series_id).color,'sand');assert.ok((await (await request(env,'GET',null,familyB)).json()).events.every(e=>e.color==='butter'));
   assert.equal((await request(env,'PUT',{...selected,color:'pink',apply_scope:'series'})).status,409);assert.ok((await (await request(env)).json()).events.filter(e=>e.series_id).every(e=>e.color==='blue'));
 });
 test('series icon removal preserves other fields and scope is rejected for independent records',async()=>{
@@ -195,7 +195,7 @@ test('matching occurrences in another series are kept without inserting extra co
   const after=(await (await request(env)).json()).events;assert.equal(after.length,3);assert.deepEqual(after.slice(1),before.slice(1));
 });
 test('recurrence duplicate protection preserves differently named, typed, or duration events on the same date',async()=>{
-  const env=database();await request(env,'POST',event);for(const extra of [{title:'다른 가족 행사'},{kind:'family'},{end:'2026-11-20'}])await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22',...extra});
+  const env=database();await request(env,'POST',event);for(const extra of [{title:'다른 가족 행사'},{kind:'birthday'},{end:'2026-11-20'}])await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22',...extra});
   const before=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...before[0],repeat:'weekly',until:'2026-11-20'})).status,200);const after=(await (await request(env)).json()).events;assert.equal(after.length,5);for(const row of before.slice(1))assert.deepEqual(after.find(e=>e.id===row.id),row);
 });
 test('existing ambiguous duplicate records are not deleted or automatically merged',async()=>{
@@ -238,4 +238,18 @@ test('distinct same-name periods stay separate and single-day event text is neve
 test('two-day periods spanning Saturday and Sunday render one segment in each week',()=>{
   const event={id:'boundary',title:'주말 방문',start:'2026-11-14',end:'2026-11-15'};
   const before=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`)).periods[0],after=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${15+i}`)).periods[0];assert.deepEqual([before.startColumn,before.endColumn,before.starts,before.ends],[6,6,true,false]);assert.deepEqual([after.startColumn,after.endColumn,after.starts,after.ends],[0,0,false,true]);
+});
+
+test('grandmother colors are fixed and reserved shades are rejected for other categories',async()=>{
+  const env=database();for(const [kind,color] of [['suwon','peach'],['ulsan','sage']]){assert.equal((await request(env,'POST',{...event,kind,color:'blue'})).status,201);const row=(await (await request(env)).json()).events.find(e=>e.kind===kind);assert.equal(row.color,color);assert.equal(eventColor({...row,color:'pink'}),color);}
+  for(const kind of ['birthday','family'])for(const color of ['peach','sage'])assert.equal((await request(env,'POST',{...event,kind,color})).status,400);
+  assert.equal((await request(env,'POST',{...event,kind:'family',color:'mint'})).status,201);
+});
+test('legacy reserved color readback uses the new palette without changing event identity or notes',async()=>{
+  const env=database();await request(env,'POST',{...event,kind:'family',color:'pink'});const before=(await (await request(env)).json()).events[0];await env.DB.prepare("UPDATE events SET color='sage' WHERE id=?").bind(before.id).run();
+  const after=(await (await request(env)).json()).events[0];assert.equal(after.color,'blue');assert.equal(after.id,before.id);assert.equal(after.note,before.note);assert.equal(after.revision,before.revision);assert.equal(after.start,before.start);assert.equal(eventColor({...after,kind:'birthday',color:'peach'}),'lavender');
+});
+test('changing a grandmother category across a series enforces its new fixed color',async()=>{
+  const env=database();await request(env,'POST',{...event,kind:'suwon',repeat:'weekly',until:'2026-11-20'});const rows=(await (await request(env)).json()).events;assert.ok(rows.every(e=>e.color==='peach'));
+  assert.equal((await request(env,'PUT',{...rows[0],kind:'ulsan',color:'pink',apply_scope:'series'})).status,200);assert.ok((await (await request(env)).json()).events.every(e=>e.kind==='ulsan'&&e.color==='sage'));
 });

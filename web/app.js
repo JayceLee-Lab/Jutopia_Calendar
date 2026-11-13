@@ -48,6 +48,12 @@ function renderCalendar(){
     div.innerHTML=`<div class="date-line"><button class="date-button" aria-label="${cell.date}${holiday?' '+esc(holiday):''} 일정 등록" ${supported?'':'disabled'} ${cell.date===today?'aria-current="date"':''}>${cell.day}</button>${holiday?`<span class="holiday-name" title="${esc(holiday)}">${esc(holiday)}</span>`:''}</div>`;
     div.addEventListener('click',()=>{if(supported)openEvent(null,cell.date);});
     const dayEvents=filtered.filter(e=>e.start<=cell.date&&e.end>=cell.date),iconEvents=dayEvents.filter(e=>e.icon);
+    for(const event of dayEvents){
+      const button=document.createElement('button');button.className=`event-chip ${eventColor(event)}${event.start<cell.date?' continuation':''}`;
+      button.textContent=event.title;
+      button.title=`${event.title} · ${rangeText(event,true)}${lunarLabel(event)?' · '+lunarLabel(event):''}${event.note?'\n'+event.note:''}`;
+      button.setAttribute('aria-label',`${event.title}, ${rangeText(event,true)}, 수정 또는 삭제`);bindEvent(button,event);div.append(button);
+    }
     if(iconEvents.length){
       const group=document.createElement('div');
       group.className=`day-icons${iconEvents.length>1?' multiple':''}${iconEvents.length>3?' crowded':''}`;
@@ -58,12 +64,6 @@ function renderCalendar(){
         bindEvent(icon,event);group.append(icon);
       }
       div.append(group);
-    }
-    for(const event of dayEvents){
-      const button=document.createElement('button');button.className=`event-chip ${eventColor(event)}${event.start<cell.date?' continuation':''}`;
-      button.textContent=event.title;
-      button.title=`${event.title} · ${rangeText(event,true)}${lunarLabel(event)?' · '+lunarLabel(event):''}${event.note?'\n'+event.note:''}`;
-      button.setAttribute('aria-label',`${event.title}, ${rangeText(event,true)}, 수정 또는 삭제`);bindEvent(button,event);div.append(button);
     }
     fragment.append(div);
   }

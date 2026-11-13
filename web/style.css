@@ -138,3 +138,5 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 .brand-title-main{font-size:1.08em}
 .brand-title-second{transform:translateX(.65em)}
 @media(max-width:600px){.brand-title-second{transform:translateX(.4em)}}
+
+.day-cell{display:flex;flex-direction:column}.day-cell>.date-line,.day-cell>.event-chip{flex-shrink:0}.day-cell>.day-icons{margin-top:auto;margin-bottom:0;padding-top:6px;flex-shrink:0}

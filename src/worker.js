@@ -1,8 +1,45 @@
-import { validDate, expandEvent, icons, kinds, colors, lunarToSolar, readLunar, addDays, repeatLabels } from './calendar.js';
+import { validDate, expandEvent, icons, kinds, colors, lunarToSolar, readLunar, addDays, repeatLabels, defaultRepeatUntil } from './calendar.js';
 // Build injects the static asset map here. No network dependency for the UI.
 const assets = __ASSETS__;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const hash=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+const POLICY='ten-year-weekly-v1';
+const renameTitle=title=>title==='수원 할머니 방문'?'수원':title==='울산 할머니 방문'?'울산':title;
+async function applyRepeatPolicy(request,env){
+  if(request.method!=='POST'||!env.REPEAT_MAINTENANCE_KEY||request.headers.get('x-maintenance-key')!==env.REPEAT_MAINTENANCE_KEY)return json({error:'허용되지 않은 요청입니다.'},403);
+  const {results:rows}=await env.DB.prepare('SELECT * FROM events ORDER BY family,start,id').all();
+  const {results:completed}=await env.DB.prepare("SELECT key FROM maintenance_log WHERE status='done'").all();
+  const done=new Set(completed.map(row=>row.key)),groups=new Map();
+  for(const row of rows){
+    const repeating=row.repeat_rule!=='none';
+    if(!repeating&&renameTitle(row.title)===row.title)continue;
+    const key=`${POLICY}:${row.family}:${repeating?(row.series_id||row.id):row.id}`;
+    if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);
+  }
+  const pending=[...groups].filter(([key])=>!done.has(key));
+  if(!pending.length)return json({done:true,remaining:0,processed:0});
+  const [key,group]=pending[0],base=group[0],now=new Date().toISOString(),statements=[];
+  const repeating=base.repeat_rule!=='none',repeat=base.repeat_rule==='biweekly'?'weekly':base.repeat_rule;
+  const until=repeating?defaultRepeatUntil(base.start):'',series=repeating?(base.series_id||crypto.randomUUID()):'';
+  statements.push(env.DB.prepare("INSERT OR IGNORE INTO maintenance_log(key,status,payload,updated_at) VALUES (?,'backup',?,?)").bind('backup:'+key,JSON.stringify(group),now));
+  for(const row of group){
+    const active=repeating&&row.start<=until;
+    statements.push(env.DB.prepare('UPDATE events SET title=?,repeat_rule=?,repeat_until=?,series_id=?,revision=revision+1,updated_at=? WHERE id=? AND family=?').bind(renameTitle(row.title),active?repeat:'none',active?until:'',active?series:'',now,row.id,row.family));
+  }
+  const existingDates=new Set(group.map(row=>row.start)),added=[];
+  if(repeating){
+    const event={...base,title:renameTitle(base.title)};
+    for(const item of expandEvent(event,repeat,until)){
+      if(existingDates.has(item.start))continue;
+      const id=crypto.randomUUID();added.push(id);
+      statements.push(env.DB.prepare('INSERT INTO events(id,family,title,kind,icon,start,end,note,calendar_type,lunar_start,color,series_id,repeat_rule,repeat_until,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,base.family,item.title,item.kind,item.icon,item.start,item.end,item.note,item.calendar_type,item.lunar_start,item.color,series,repeat,until,now));
+    }
+  }
+  statements.push(env.DB.prepare("INSERT INTO maintenance_log(key,status,payload,updated_at) VALUES (?,'done',?,?)").bind(key,JSON.stringify({oldCount:group.length,addedIds:added,until,repeat}),now));
+  await env.DB.batch(statements);
+  return json({done:pending.length===1,remaining:pending.length-1,processed:1,preserved:group.length,added:added.length});
+}
+
 export default {
   async fetch(request,env) {
     const url=new URL(request.url);
@@ -13,12 +50,14 @@ export default {
       return new Response(request.method==='HEAD'?null:(asset.base64?Uint8Array.from(atob(asset.base64),char=>char.charCodeAt(0)):asset.body),{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
     }
     try {
-      if (url.pathname!=='/api/events') return json({error:'찾을 수 없는 요청입니다.'},404);
+      if (!['/api/events','/api/admin/repeat-policy'].includes(url.pathname)) return json({error:'찾을 수 없는 요청입니다.'},404);
       if (request.headers.get('origin') && request.headers.get('origin')!==url.origin) return json({error:'허용되지 않은 요청입니다.'},403);
+      if(url.pathname==='/api/admin/repeat-policy')return await applyRepeatPolicy(request,env);
       const code=request.headers.get('x-family-code')||'';
       if (!/^[a-zA-Z0-9_-]{20,128}$/.test(code)) return json({error:'가족 공유 코드를 확인해 주세요.'},401);
       if (!env.DB) return json({error:'공유 저장소 연결이 필요합니다. 관리자에게 문의해 주세요.'},503);
       const family=await hash(code);
+      if(request.method!=='GET'&&env.REPEAT_MAINTENANCE_KEY)return json({error:'기존 일정을 업데이트하고 있어요. 잠시 후 저장해 주세요.'},503);
       if (request.method==='GET') {
         const {results}=await env.DB.prepare('SELECT id,title,kind,icon,start,end,note,calendar_type,lunar_start,color,series_id,repeat_rule,repeat_until,revision,updated_at FROM events WHERE family = ? ORDER BY start,title').bind(family).all();
         return json({events:results});
@@ -50,7 +89,7 @@ export default {
         const existing=await env.DB.prepare('SELECT id,start,revision,series_id,repeat_rule,repeat_until FROM events WHERE id=? AND family=?').bind(body.id,family).all();
         const current=existing.results[0];
         if(!current||current.revision!==body.revision)return json({error:'다른 가족이 먼저 수정했거나 삭제했습니다. 최신 일정을 다시 열어 주세요.'},409);
-        const repeat=body.repeat??current.repeat_rule,until=repeat==='none'?'':body.until??current.repeat_until;
+        const repeat=body.repeat??current.repeat_rule,until=repeat==='none'?'':(Object.hasOwn(body,'until')?(body.until||defaultRepeatUntil(event.start)):(current.repeat_until||defaultRepeatUntil(event.start)));
         if(!Object.hasOwn(repeatLabels,repeat))return json({error:'반복 설정을 확인해 주세요.'},400);
         const changed=repeat!==current.repeat_rule||until!==current.repeat_until;
         if(!changed){
@@ -71,7 +110,7 @@ export default {
         const results=await env.DB.batch(statements);
         return results[0].meta.changes?json({ok:true,count:expanded.length}):json({error:'다른 가족이 먼저 수정했습니다. 최신 일정을 다시 열어 주세요.'},409);
       }
-      const repeat=body.repeat||'none',until=repeat==='none'?'':body.until;
+      const repeat=body.repeat||'none',until=repeat==='none'?'':(body.until||defaultRepeatUntil(event.start));
       let expanded;try{expanded=expandEvent(event,repeat,until);}catch(e){return json({error:e.message},400);}
       const series=repeat==='none'?'':crypto.randomUUID();
       await env.DB.batch(expanded.map(e=>env.DB.prepare(`INSERT INTO events (${columns}) VALUES (${placeholders})`).bind(...insertValues(e,series,repeat,until||''))));

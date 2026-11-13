@@ -1,8 +1,8 @@
 import { lunarMonths } from './lunar-data.js';
-export const MIN_YEAR = 2020, MAX_YEAR = 2035;
+export const MIN_YEAR = 2020, MAX_YEAR = 2050;
 export const icons = ['','🏡','🌷','🎂','🎉','🍽️','✈️','🏥','🎒','💛','⭐','🎈','🎁','👨‍👩‍👧‍👦','🚗','📚','🎵','⚽','🛍️','🐾','🍀'];
 export const kinds = { suwon: { label: '수원 할머니', color: 'sage', icon: '🌷' }, ulsan: { label: '울산 할머니', color: 'peach', icon: '🏡' }, birthday: { label: '생일', color: 'lavender', icon: '🎂' }, family: { label: '가족 행사', color: 'blue', icon: '🎉' } };
-export const repeatLabels = {none:'반복 안 함',weekly:'매주',biweekly:'2주마다',monthly:'매월',yearly:'매년'};
+export const repeatLabels = {none:'반복 안 함',weekly:'매주',monthly:'매월',yearly:'매년'};
 export const colors = {sage:'세이지',peach:'살구',lavender:'라벤더',blue:'하늘',pink:'분홍',butter:'버터',mint:'민트',lilac:'라일락',aqua:'아쿠아',sand:'모래'};
 export function eventColor(event) {return Object.hasOwn(colors,event.color)?event.color:kinds[event.kind].color;}
 export function readLunar(value) {try {return typeof value==='string'?JSON.parse(value):value;} catch {return null;}}
@@ -23,10 +23,12 @@ export function parseDate(value) { return new Date(`${value}T12:00:00`); }
 export function addDays(value, n) { const d=parseDate(value); d.setDate(d.getDate()+n); return dateKey(d); }
 export function todayKey() { return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
 export function validDate(s) { return typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number(s.slice(0,4))>=MIN_YEAR && Number(s.slice(0,4))<=MAX_YEAR && dateKey(parseDate(s))===s; }
-export function expandEvent(event, repeat='none', until=event.start) {
+export function defaultRepeatUntil(start){const d=parseDate(start),year=Math.min(d.getFullYear()+10,MAX_YEAR);return dateKey(new Date(year,d.getMonth(),Math.min(d.getDate(),new Date(year,d.getMonth()+1,0).getDate()),12));}
+export function expandEvent(event, repeat='none', until=defaultRepeatUntil(event.start)) {
   if (!validDate(event.start) || !validDate(event.end) || event.end<event.start) throw new Error('시작일과 종료일을 확인해 주세요.');
   if (!Object.hasOwn(repeatLabels,repeat)) throw new Error('반복 설정을 확인해 주세요.');
   if (repeat==='none') return [event];
+  if(!until)until=defaultRepeatUntil(event.start);
   if (!validDate(until) || until<event.start) throw new Error('반복 종료일을 확인해 주세요.');
   const out=[]; const duration=Math.round((parseDate(event.end)-parseDate(event.start))/86400000);
   if (repeat==='monthly' && event.calendar_type==='lunar') {
@@ -59,7 +61,7 @@ export function expandEvent(event, repeat='none', until=event.start) {
     const end=addDays(start,duration);
     if (!validDate(end)) break;
     out.push({...event,start,end,...(event.calendar_type==='lunar'?{lunar_start:JSON.stringify(solarToLunar(start))}:{})});
-    if (repeat==='weekly'||repeat==='biweekly') start=addDays(start,repeat==='weekly'?7:14);
+    if (repeat==='weekly') start=addDays(start,7);
     else if(repeat==='monthly'){
       const initial=parseDate(event.start),next=new Date(initial.getFullYear(),initial.getMonth()+i+1,1,12);
       const day=Math.min(initial.getDate(),new Date(next.getFullYear(),next.getMonth()+1,0).getDate());
@@ -70,7 +72,7 @@ export function expandEvent(event, repeat='none', until=event.start) {
       start=`${year}${event.start.slice(4)}`;
       if (!validDate(start) && event.start.endsWith('02-29')) start=`${year}-02-28`;
     }
-    if (out.length>500) throw new Error('반복 일정이 너무 많습니다.');
+    if (out.length>2000) throw new Error('반복 일정이 너무 많습니다.');
   }
   return out;
 }

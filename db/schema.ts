@@ -17,3 +17,5 @@ export const events=sqliteTable('events',{
   revision:integer('revision').notNull().default(1),
   updatedAt:text('updated_at').notNull(),
 },table=>[index('events_family_dates').on(table.family,table.start,table.end)]);
+
+export const maintenanceLog=sqliteTable('maintenance_log',{key:text('key').primaryKey(),status:text('status').notNull(),payload:text('payload').notNull().default(''),updatedAt:text('updated_at').notNull()});

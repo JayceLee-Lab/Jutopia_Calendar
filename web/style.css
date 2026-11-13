@@ -104,3 +104,10 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 @media(max-width:600px){.brand-logo{width:102.4px}.topbar .brand{max-width:48%}}
 
 .repeat-current{margin:12px 0 0;padding:10px 12px;background:#edf3e7;border-radius:8px;font-size:.875rem;color:#526d43;overflow-wrap:anywhere}
+.registration-tools{display:flex;flex-direction:column;align-items:flex-end;gap:7px;margin-left:7px}
+.search-button{width:38px;height:34px;padding:5px;border:1px solid #d9e2d2;border-radius:7px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--green)}
+.search-button:hover{background:#edf3e7}
+.search-results{display:flex;flex-direction:column;gap:9px;max-height:52dvh;overflow:auto;margin-top:12px}
+.search-result{display:flex;flex-direction:column;gap:5px;border:1px solid #dfe6d8;background:#fff;border-radius:9px;padding:13px;text-align:left;overflow-wrap:anywhere}
+.search-result:hover{border-color:#9bb588}.search-result strong{font-size:1rem}.search-result span,.search-result small{font-size:.875rem;color:#718167}
+@media(max-width:600px){.registration-tools{margin-left:auto}.registration-tools .primary{font-size:.9375rem;padding:9px 13px}}

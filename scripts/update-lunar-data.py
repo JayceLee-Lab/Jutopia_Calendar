@@ -4,7 +4,7 @@ from pathlib import Path
 from korean_lunar_calendar import KoreanLunarCalendar
 calendar = KoreanLunarCalendar()
 months = []
-for year in range(2019, 2036):
+for year in range(2019, 2051):
     for month in range(1, 13):
         for leap in (False, True):
             if not calendar.setLunarDate(year, month, 1, leap) or calendar.isIntercalation != leap:

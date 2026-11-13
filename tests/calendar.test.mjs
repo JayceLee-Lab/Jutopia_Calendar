@@ -145,3 +145,28 @@ test('one-time data maintenance backs up originals, converts fortnightly to week
   const backups=await env.DB.prepare("SELECT payload FROM maintenance_log WHERE status='backup'").all();assert.equal(backups.results.length,1);assert.equal(JSON.parse(backups.results[0].payload).length,2);assert.ok(JSON.parse(backups.results[0].payload).every(row=>row.title==='수원 할머니 방문'&&row.repeat_rule==='biweekly'));
   assert.equal((await (await admin()).json()).processed,0);assert.equal((await (await request(env)).json()).events.length,rows.length);
 });
+
+test('series scope applies changed color/icon to all occurrences while preserving dates and custom content',async()=>{
+  const env=database();await request(env,'POST',{...event,color:'sage',repeat:'weekly',until:'2026-11-27'});await request(env,'POST',{...event,title:'별도 일정',color:'peach'});await request(env,'POST',{...event,color:'butter',repeat:'weekly',until:'2026-11-27'},familyB);
+  let all=(await (await request(env)).json()).events,group=all.filter(e=>e.series_id),first=group[0];
+  await request(env,'PUT',{...first,title:'개별 제목',note:'개별 메모'});all=(await (await request(env)).json()).events;group=all.filter(e=>e.series_id);const selected=group[1],dates=group.map(e=>[e.id,e.start,e.end,e.lunar_start,e.repeat_until]);
+  const response=await request(env,'PUT',{...selected,color:'blue',icon:'⭐',apply_scope:'series'});assert.equal(response.status,200);assert.equal((await response.json()).updated_count,3);
+  all=(await (await request(env)).json()).events;group=all.filter(e=>e.series_id);assert.ok(group.every(e=>e.color==='blue'&&e.icon==='⭐'));assert.deepEqual(group.map(e=>[e.id,e.start,e.end,e.lunar_start,e.repeat_until]),dates);assert.equal(group[0].title,'개별 제목');assert.equal(group[0].note,'개별 메모');assert.equal(all.find(e=>!e.series_id).color,'peach');assert.ok((await (await request(env,'GET',null,familyB)).json()).events.every(e=>e.color==='butter'));
+  assert.equal((await request(env,'PUT',{...selected,color:'pink',apply_scope:'series'})).status,409);assert.ok((await (await request(env)).json()).events.filter(e=>e.series_id).every(e=>e.color==='blue'));
+});
+test('series icon removal preserves other fields and scope is rejected for independent records',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'});let rows=(await (await request(env)).json()).events;
+  await request(env,'PUT',{...rows[0],color:'pink'});rows=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...rows[1],icon:'',apply_scope:'series'})).status,200);
+  rows=(await (await request(env)).json()).events;assert.ok(rows.every(e=>e.icon===''));assert.equal(rows[0].color,'pink');
+  await request(env,'POST',{...event,title:'독립 일정'});const single=(await (await request(env)).json()).events.find(e=>!e.series_id);assert.equal((await request(env,'PUT',{...single,apply_scope:'series',color:'mint'})).status,400);assert.equal((await request(env,'PUT',{...rows[0],apply_scope:'invalid'})).status,400);
+});
+test('lunar dates remain specific to each occurrence after series-wide content editing',async()=>{
+  const env=database(),lunar={year:2026,month:1,day:1,leap:false};await request(env,'POST',{...event,start:'2026-02-17',end:'2026-02-17',calendar_type:'lunar',lunar_start:JSON.stringify(lunar),repeat:'yearly',until:'2028-12-31'});
+  const before=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...before[1],title:'음력 가족 생일',icon:'🎂',apply_scope:'series'})).status,200);const after=(await (await request(env)).json()).events;
+  assert.ok(after.every(e=>e.title==='음력 가족 생일'&&e.icon==='🎂'));assert.deepEqual(after.map(e=>[e.start,e.end,e.lunar_start]),before.map(e=>[e.start,e.end,e.lunar_start]));
+});
+test('series-wide content editing can accompany a recurrence change while retaining past occurrence dates',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'});const before=(await (await request(env)).json()).events;
+  const result=await request(env,'PUT',{...before[1],repeat:'monthly',until:'2027-01-31',color:'mint',icon:'🍀',apply_scope:'series'});assert.equal(result.status,200);assert.equal((await result.json()).updated_count,4);const rows=(await (await request(env)).json()).events;
+  assert.deepEqual(rows.map(e=>e.start),['2026-11-13','2026-11-20','2026-12-20','2027-01-20']);assert.ok(rows.every(e=>e.icon==='🍀'&&e.color==='mint'));assert.equal(rows[0].id,before[0].id);
+});

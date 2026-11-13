@@ -121,3 +121,5 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 
 .brand-copy{display:block;position:relative;min-width:0;max-width:10em;font-size:.875rem;transform:translateY(8px)}.brand-ornaments{position:absolute;top:100%;left:1px;margin-top:4px;display:flex;align-items:center;gap:9px;line-height:1;color:#adba8c;font-size:.8125rem;pointer-events:none}.brand-heart{display:inline-block;color:#b2a487;transform:rotate(-10deg);font-size:.9375rem}.brand-dash{display:block;width:20px;border-top:1px solid #d5ddc5;transform:rotate(-4deg)}.brand-flower{display:inline-block;transform:rotate(12deg);font-size:.75rem}
 @media(max-width:600px){.brand-copy{font-size:.8125rem;transform:translateY(6px)}.brand-ornaments{gap:7px;margin-top:3px}.brand-dash{width:15px}}
+
+#scope-dialog{width:460px}.scope-description{font-size:1rem;line-height:1.8;color:#53664b}.scope-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}.scope-actions>.primary,.scope-actions>.secondary{flex:1;min-width:150px}.scope-cancel{width:100%;border:0;background:transparent;color:#839276;font-size:.875rem;padding:9px}

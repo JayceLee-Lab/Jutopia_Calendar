@@ -1,3 +1,4 @@
+import {applyRepeatPolicy} from '../scripts/maintenance-repeat-policy.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
@@ -136,9 +137,8 @@ test('one-time data maintenance backs up originals, converts fortnightly to week
   await env.DB.prepare("UPDATE events SET repeat_rule='biweekly',repeat_until='2026-12-31',series_id='legacy-series'").run();
   const original=(await (await request(env)).json()).events;
   const maintenanceEnv={...env,REPEAT_MAINTENANCE_KEY:'test-maintenance-key'};
-  const admin=()=>worker.fetch(new Request('https://calendar.example/api/admin/repeat-policy',{method:'POST',headers:{'x-maintenance-key':'test-maintenance-key'}}),maintenanceEnv);
-  assert.equal((await request(maintenanceEnv,'POST',event)).status,503);
-  assert.equal((await worker.fetch(new Request('https://calendar.example/api/admin/repeat-policy',{method:'POST'}),maintenanceEnv)).status,403);
+  const admin=()=>applyRepeatPolicy(new Request('https://calendar.example/api/admin/repeat-policy',{method:'POST',headers:{'x-maintenance-key':'test-maintenance-key'}}),maintenanceEnv);
+  assert.equal((await worker.fetch(new Request('https://calendar.example/api/admin/repeat-policy',{method:'POST'}),maintenanceEnv)).status,404);assert.equal((await applyRepeatPolicy(new Request('https://calendar.example/api/admin/repeat-policy',{method:'POST'}),maintenanceEnv)).status,403);
   const response=await admin();assert.equal(response.status,200);assert.equal((await response.json()).done,true);
   const rows=(await (await request(env)).json()).events;assert.ok(rows.length>=521);assert.ok(rows.every(e=>e.title==='수원'&&e.repeat_rule==='weekly'&&e.repeat_until==='2036-11-13'));
   for(const old of original){const preserved=rows.find(e=>e.id===old.id);assert.equal(preserved.start,old.start);assert.equal(preserved.end,old.end);assert.equal(preserved.note,old.note);assert.equal(preserved.icon,old.icon);}

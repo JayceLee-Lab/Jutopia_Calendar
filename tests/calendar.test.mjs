@@ -181,3 +181,28 @@ test('overlapping recurring family events remain separate series on matching dat
   const env=database();for(const title of ['가족 운동','가족 독서'])assert.equal((await request(env,'POST',{...event,kind:'family',title,repeat:'weekly',until:'2026-11-27'})).status,201);
   const rows=(await (await request(env)).json()).events;assert.equal(rows.length,6);assert.equal(new Set(rows.map(e=>e.series_id)).size,2);for(const date of ['2026-11-13','2026-11-20','2026-11-27'])assert.equal(rows.filter(e=>e.start===date).length,2);
 });
+
+test('converting independent events into a series reuses matching future records without duplicates',async()=>{
+  const env=database();await request(env,'POST',event);await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22',note:'기존 회차별 메모',color:'pink',icon:'⭐'});await request(env,'POST',{...event,start:'2026-11-27',end:'2026-11-29'});
+  const original=(await (await request(env)).json()).events,root=original[0];const response=await request(env,'PUT',{...root,repeat:'weekly',until:'2026-11-27'});assert.equal(response.status,200);const result=await response.json();assert.equal(result.created_count,0);assert.equal(result.reused_count,2);
+  let rows=(await (await request(env)).json()).events;assert.equal(rows.length,3);assert.deepEqual(rows.map(e=>e.id),original.map(e=>e.id));assert.equal(new Set(rows.map(e=>e.series_id)).size,1);assert.ok(rows[0].series_id);assert.ok(rows.every(e=>e.repeat_rule==='weekly'));assert.equal(rows[1].note,'기존 회차별 메모');assert.equal(rows[1].color,'pink');assert.equal(rows[1].icon,'⭐');
+  assert.equal((await request(env,'PUT',{...root,repeat:'weekly',until:'2026-11-27'})).status,409);assert.equal((await (await request(env)).json()).events.length,3);
+  assert.equal((await request(env,'PUT',{...rows[0],repeat:'weekly',until:'2026-11-27'})).status,200);assert.equal((await (await request(env)).json()).events.length,3);
+});
+test('matching occurrences in another series are kept without inserting extra copies or changing their group',async()=>{
+  const env=database();await request(env,'POST',event);await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22',repeat:'weekly',until:'2026-11-27'});
+  const before=(await (await request(env)).json()).events;const response=await request(env,'PUT',{...before[0],repeat:'weekly',until:'2026-11-27'});assert.equal(response.status,200);const result=await response.json();assert.equal(result.created_count,0);assert.equal(result.reused_count,0);
+  const after=(await (await request(env)).json()).events;assert.equal(after.length,3);assert.deepEqual(after.slice(1),before.slice(1));
+});
+test('recurrence duplicate protection preserves differently named, typed, or duration events on the same date',async()=>{
+  const env=database();await request(env,'POST',event);for(const extra of [{title:'다른 가족 행사'},{kind:'family'},{end:'2026-11-20'}])await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22',...extra});
+  const before=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...before[0],repeat:'weekly',until:'2026-11-20'})).status,200);const after=(await (await request(env)).json()).events;assert.equal(after.length,5);for(const row of before.slice(1))assert.deepEqual(after.find(e=>e.id===row.id),row);
+});
+test('existing ambiguous duplicate records are not deleted or automatically merged',async()=>{
+  const env=database();await request(env,'POST',event);for(let i=0;i<2;i++)await request(env,'POST',{...event,start:'2026-11-20',end:'2026-11-22'});const before=(await (await request(env)).json()).events;
+  const result=await (await request(env,'PUT',{...before[0],repeat:'weekly',until:'2026-11-20'})).json();assert.equal(result.created_count,0);assert.equal(result.reused_count,0);const after=(await (await request(env)).json()).events;assert.equal(after.length,3);assert.deepEqual(after.slice(1),before.slice(1));
+});
+test('lunar recurrence conversion reuses the proper lunar-year record and never another family calendar',async()=>{
+  const env=database(),base={...event,start:'2026-02-17',end:'2026-02-17',calendar_type:'lunar',lunar_start:JSON.stringify({year:2026,month:1,day:1,leap:false})};await request(env,'POST',base);const future={...base,start:'2027-02-07',end:'2027-02-07',lunar_start:JSON.stringify({year:2027,month:1,day:1,leap:false})};await request(env,'POST',future);await request(env,'POST',future,familyB);
+  const before=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...before[0],repeat:'yearly',until:'2027-12-31'})).status,200);const after=(await (await request(env)).json()).events;assert.equal(after.length,2);assert.equal(after[1].id,before[1].id);assert.equal(after[1].lunar_start,future.lunar_start);assert.ok(after[1].series_id);const other=(await (await request(env,'GET',null,familyB)).json()).events;assert.equal(other.length,1);assert.equal(other[0].series_id,'');assert.equal(other[0].revision,1);
+});

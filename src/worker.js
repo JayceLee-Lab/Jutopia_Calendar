@@ -79,9 +79,21 @@ export default {
           const pastSharedSet=scope==='series'&&sharedFields.length?sharedSet.join(',')+',':'';
           statements.push(env.DB.prepare('UPDATE events SET '+pastSharedSet+'repeat_until=?,revision=revision+1,updated_at=? WHERE family=? AND series_id=? AND start<? AND '+guard).bind(...(scope==='series'?sharedValues:[]),addDays(current.start,-1),now,family,current.series_id,current.start,...guardValues));
         }
-        for(const e of expanded.slice(1))statements.push(env.DB.prepare(`INSERT INTO events (${columns}) SELECT ${placeholders} WHERE ${guard}`).bind(...insertValues(e,series,repeat,until),...guardValues));
+        const future=expanded.slice(1),reuseIndex=statements.length;
+        if(future.length){
+          // Adopt only one unambiguously matching independent record; preserve its ID and content.
+          const adoptedSharedSet=scope==='series'&&sharedFields.length?sharedSet.join(',')+',':'';
+          const reuseSql=`UPDATE events SET ${adoptedSharedSet}series_id=?,repeat_rule=?,repeat_until=?,revision=revision+1,updated_at=? WHERE family=? AND title=? AND kind=? AND calendar_type=? AND id<>? AND repeat_rule='none' AND EXISTS(SELECT 1 FROM json_each(?) occurrence WHERE json_extract(occurrence.value,'$.start')=events.start AND json_extract(occurrence.value,'$.end')=events.end) AND (SELECT COUNT(*) FROM events matching WHERE matching.family=events.family AND matching.title=events.title AND matching.kind=events.kind AND matching.start=events.start AND matching.end=events.end AND matching.calendar_type=events.calendar_type)=1 AND ${guard}`;
+          statements.push(env.DB.prepare(reuseSql).bind(...(scope==='series'?sharedValues:[]),series,repeat,until,now,family,event.title,event.kind,event.calendar_type,body.id,JSON.stringify(future.map(e=>({start:e.start,end:e.end}))),...guardValues));
+        }
+        const insertStart=statements.length;
+        for(const e of future){
+          const matching='EXISTS(SELECT 1 FROM events WHERE family=? AND title=? AND kind=? AND start=? AND end=? AND calendar_type=?)';
+          statements.push(env.DB.prepare(`INSERT INTO events (${columns}) SELECT ${placeholders} WHERE ${guard} AND NOT ${matching}`).bind(...insertValues(e,series,repeat,until),...guardValues,family,e.title,e.kind,e.start,e.end,e.calendar_type));
+        }
         const results=await env.DB.batch(statements);
-        return results[0].meta.changes?json({ok:true,count:expanded.length,updated_count:scope==='series'?expanded.length+(current.series_id?(results[2]?.meta.changes||0):0):1}):json({error:'다른 가족이 먼저 수정했습니다. 최신 일정을 다시 열어 주세요.'},409);
+        const createdCount=results.slice(insertStart).reduce((sum,result)=>sum+result.meta.changes,0),reusedCount=future.length?results[reuseIndex].meta.changes:0;
+        return results[0].meta.changes?json({ok:true,count:expanded.length,created_count:createdCount,reused_count:reusedCount,existing_count:future.length-createdCount,updated_count:scope==='series'?1+createdCount+reusedCount+(current.series_id?(results[2]?.meta.changes||0):0):1}):json({error:'다른 가족이 먼저 수정했습니다. 최신 일정을 다시 열어 주세요.'},409);
       }
       const repeat=body.repeat||'none',until=repeat==='none'?'':(body.until||defaultRepeatUntil(event.start));
       let expanded;try{expanded=expandEvent(event,repeat,until);}catch(e){return json({error:e.message},400);}

@@ -10,7 +10,7 @@ export default {
       if (!['GET','HEAD'].includes(request.method)) return new Response('Method not allowed',{status:405});
       const asset=assets[url.pathname==='/'?'/index.html':url.pathname];
       if (!asset) return new Response('Not found',{status:404});
-      return new Response(request.method==='HEAD'?null:asset.body,{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
+      return new Response(request.method==='HEAD'?null:(asset.base64?Uint8Array.from(atob(asset.base64),char=>char.charCodeAt(0)):asset.body),{headers:{'content-type':asset.type,'cache-control':'no-cache','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
     }
     try {
       if (url.pathname!=='/api/events') return json({error:'찾을 수 없는 요청입니다.'},404);

@@ -108,9 +108,10 @@ function renderColors(){
   const kind=$('event-kind').value,fixed=isGrandmaEvent({kind}),available=Object.entries(colors).filter(([color])=>fixed?color===kinds[kind].color:!['suwon','ulsan'].includes(color));
   if(fixed)selectedColor=kinds[kind].color;
   else if(['suwon','ulsan'].includes(selectedColor))selectedColor=kinds[kind].color;
-  $('color-note').textContent=fixed?`${kinds[kind].label} 일정은 ${colors[kinds[kind].color]} 색상으로 고정됩니다.`:'살구·세이지를 포함한 10가지 파스텔 색상 중 선택해 주세요.';
+  $('color-note').hidden=fixed;
+  $('color-note').textContent=fixed?'':'살구·세이지를 포함한 10가지 파스텔 색상 중 선택해 주세요.';
   $('color-options').replaceChildren(...available.map(([color,label])=>{
-    const button=document.createElement('button');button.type='button';button.className=`color-option ${color}${selectedColor===color?' selected':''}`;button.textContent=label;button.disabled=fixed;button.setAttribute('aria-pressed',String(selectedColor===color));button.setAttribute('aria-label',`${label} 색상${fixed?' (고정)':''}`);if(!fixed)button.onclick=()=>{selectedColor=color;renderColors();};return button;
+    const button=document.createElement('button');button.type='button';button.className=`color-option ${color}${selectedColor===color?' selected':''}`;button.textContent=fixed?'':label;button.disabled=fixed;button.setAttribute('aria-pressed',String(selectedColor===color));button.setAttribute('aria-label',`${label} 색상${fixed?' (고정)':''}`);if(!fixed)button.onclick=()=>{selectedColor=color;renderColors();};return button;
   }));
 }
 for(let year=MIN_YEAR-1;year<=MAX_YEAR;year++)$('lunar-year').add(new Option(`${year}년`,year));

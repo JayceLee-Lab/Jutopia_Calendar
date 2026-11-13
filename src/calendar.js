@@ -3,7 +3,7 @@ export const MIN_YEAR = 2020, MAX_YEAR = 2050;
 export const icons = ['','🏡','🌷','🎂','🎉','🍽️','✈️','🏥','🎒','💛','⭐','🎈','🎁','👨‍👩‍👧‍👦','🚗','📚','🎵','⚽','🛍️','🐾','🍀'];
 export const kinds = { suwon: { label: '수원 할머니', title: '수원 할머니 방문', color: 'suwon', icon: '🌷' }, ulsan: { label: '울산 할머니', title: '울산 할머니 방문', color: 'ulsan', icon: '🏡' }, birthday: { label: '생일', color: 'lavender', icon: '🎂' }, family: { label: '가족 행사', color: 'blue', icon: '🎉' } };
 export const repeatLabels = {none:'반복 안 함',weekly:'매주',monthly:'매월',yearly:'매년'};
-export const colors = {sage:'세이지',peach:'살구',lavender:'라벤더',blue:'하늘',pink:'분홍',butter:'버터',mint:'민트',lilac:'라일락',aqua:'아쿠아',sand:'모래',suwon:'수원 전용 (#FF9292)',ulsan:'울산 전용 (#FFE699)'};
+export const colors = {sage:'세이지',peach:'살구',lavender:'라벤더',blue:'하늘',pink:'분홍',butter:'버터',mint:'민트',lilac:'라일락',aqua:'아쿠아',sand:'모래',suwon:'수원 할머니',ulsan:'울산 할머니'};
 export function eventColor(event) {if(event.kind==='suwon'||event.kind==='ulsan')return kinds[event.kind].color;return Object.hasOwn(colors,event.color)&&!['suwon','ulsan'].includes(event.color)?event.color:kinds[event.kind].color;}
 export function isGrandmaEvent(event){return event.kind==='suwon'||event.kind==='ulsan';}
 export function readLunar(value) {try {return typeof value==='string'?JSON.parse(value):value;} catch {return null;}}

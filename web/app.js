@@ -2,6 +2,22 @@ import {MIN_YEAR,MAX_YEAR,kinds,icons,dateKey,parseDate,todayKey,addDays,monthCe
 const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const validCode=code=>/^[a-zA-Z0-9_-]{20,128}$/.test(code||'');
 let storage;try{storage=localStorage;}catch{}
+const textSizes=[100,115,130,150];
+let textSize=100;
+try{const saved=Number(storage?.getItem('jutopia-text-size'));if(textSizes.includes(saved))textSize=saved;}catch{}
+function applyTextSize(size){
+  textSize=size;
+  document.documentElement.dataset.textSize=String(size);
+  $('font-size-value').textContent=`${size}%`;
+  $('font-decrease').disabled=size===textSizes[0];
+  $('font-increase').disabled=size===textSizes.at(-1);
+  $('font-reset').disabled=size===100;
+  try{storage?.setItem('jutopia-text-size',String(size));}catch{}
+}
+$('font-decrease').onclick=()=>applyTextSize(textSizes[Math.max(0,textSizes.indexOf(textSize)-1)]);
+$('font-increase').onclick=()=>applyTextSize(textSizes[Math.min(textSizes.length-1,textSizes.indexOf(textSize)+1)]);
+$('font-reset').onclick=()=>applyTextSize(100);
+applyTextSize(textSize);
 const invited=new URLSearchParams(location.hash.slice(1)).get('family');
 let remembered;try{remembered=storage?.getItem('jutopia-family');}catch{}
 let family=validCode(invited)?invited:validCode(remembered)?remembered:crypto.randomUUID().replaceAll('-','');

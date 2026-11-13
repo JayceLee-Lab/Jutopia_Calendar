@@ -87,3 +87,11 @@ input,select,textarea{font-size:1rem}
 .checkbox-label input{width:20px;height:20px;accent-color:var(--green);margin:0}
 #lunar-preview{padding:10px 12px;background:#eef3e8;border-radius:7px;color:#526b43;font-size:.875rem;overflow-wrap:anywhere}
 @media(max-width:600px){.brand{font-size:1.05rem;max-width:100%;flex-shrink:1}.brand-mark{width:31px;height:31px}.topbar{column-gap:10px}.topbar .share-button{margin-left:auto}.calendar-first{margin-top:20px}.visit-summary{margin-top:24px}.intro{padding:20px 4px 5px}.intro h1{font-size:1.25rem}.intro .mobile-break{display:none}.lunar-inputs{gap:5px}.lunar-inputs select{font-size:.9375rem}.color-options{gap:6px}.color-option{font-size:.75rem}}
+
+/* Daily icon summaries remain visible on phones and shrink for busy dates. */
+.day-icons{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin:3px 0 7px;--day-icon-size:1.5rem}
+.day-icons.multiple{--day-icon-size:1.0625rem}
+.day-icons.crowded{--day-icon-size:.875rem}
+.day-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;max-width:100%;border:0;background:transparent;border-radius:5px;padding:3px;font-size:var(--day-icon-size);line-height:1.25;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.day-icon:hover{background:#edf2e5}.day-icon:focus-visible{outline-offset:1px}
+@media(max-width:600px){.day-icons{gap:1px;--day-icon-size:1.375rem}.day-icons.multiple{--day-icon-size:.9375rem}.day-icons.crowded{--day-icon-size:.8125rem}.day-icon{padding:2px}}

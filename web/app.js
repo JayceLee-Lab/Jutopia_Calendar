@@ -34,7 +34,41 @@ async function loadEvents(quiet=false){const sequence=++requestSequence;try{cons
 function rangeText(e,year=false){const start=parseDate(e.start),end=parseDate(e.end);const f=d=>`${year?`${d.getFullYear()}. `:''}${d.getMonth()+1}. ${d.getDate()}`;return e.start===e.end?`${f(start)} (${['일','월','화','수','목','금','토'][start.getDay()]})`:`${f(start)} — ${f(end)}`;}
 function currentEvents(){return events.filter(e=>filter==='all'||e.kind===filter);}
 function bindEvent(button,event){let timer,sx,sy,longPressed=false;button.addEventListener('pointerdown',e=>{if(e.button!==0)return;longPressed=false;sx=e.clientX;sy=e.clientY;timer=setTimeout(()=>{longPressed=true;openEvent(event);navigator.vibrate?.(20);},550);});for(const name of ['pointerup','pointercancel','pointerleave'])button.addEventListener(name,()=>clearTimeout(timer));button.addEventListener('pointermove',e=>{if(Math.abs(e.clientX-sx)>9||Math.abs(e.clientY-sy)>9)clearTimeout(timer);});button.addEventListener('contextmenu',e=>{e.preventDefault();clearTimeout(timer);if(!longPressed)openEvent(event);});button.addEventListener('click',e=>{e.stopPropagation();if(!longPressed)openEvent(event);longPressed=false;});}
-function renderCalendar(){const year=shown.getFullYear(),month=shown.getMonth();$('month-label').textContent=`${year}년 ${month+1}월`;$('year').value=year;$('month').value=month;$('prev').disabled=year===MIN_YEAR&&month===0;$('next').disabled=year===MAX_YEAR&&month===11;$('calendar').setAttribute('aria-label',`${year}년 ${month+1}월 달력`);const cells=monthCells(year,month),fragment=document.createDocumentFragment(),filtered=currentEvents();for(const cell of cells){const holiday=holidays[cell.date],div=document.createElement('div');div.className=`day-cell${cell.outside?' outside':''}${holiday?' holiday':''}${cell.date===today?' is-today':''}`;const supported=Number(cell.date.slice(0,4))>=MIN_YEAR&&Number(cell.date.slice(0,4))<=MAX_YEAR;div.innerHTML=`<div class="date-line"><button class="date-button" aria-label="${cell.date}${holiday?' '+esc(holiday):''} 일정 등록" ${supported?'':'disabled'} ${cell.date===today?'aria-current="date"':''}>${cell.day}</button>${holiday?`<span class="holiday-name" title="${esc(holiday)}">${esc(holiday)}</span>`:''}</div>`;div.addEventListener('click',()=>{if(supported)openEvent(null,cell.date);});for(const event of filtered.filter(e=>e.start<=cell.date&&e.end>=cell.date)){const button=document.createElement('button');button.className=`event-chip ${eventColor(event)}${event.start<cell.date?' continuation':''}`;button.innerHTML=`<span class="chip-icon">${esc(event.icon)} </span>${esc(event.title)}`;button.title=`${event.title} · ${rangeText(event,true)}${lunarLabel(event)?' · '+lunarLabel(event):''}${event.note?'\n'+event.note:''}`;button.setAttribute('aria-label',`${event.title}, ${rangeText(event,true)}, 수정 또는 삭제`);bindEvent(button,event);div.append(button);}fragment.append(div);}$('calendar').replaceChildren(fragment);}
+function renderCalendar(){
+  const year=shown.getFullYear(),month=shown.getMonth();
+  $('month-label').textContent=`${year}년 ${month+1}월`;$('year').value=year;$('month').value=month;
+  $('prev').disabled=year===MIN_YEAR&&month===0;$('next').disabled=year===MAX_YEAR&&month===11;
+  $('calendar').setAttribute('aria-label',`${year}년 ${month+1}월 달력`);
+  const fragment=document.createDocumentFragment(),filtered=currentEvents();
+  for(const cell of monthCells(year,month)){
+    const holiday=holidays[cell.date],div=document.createElement('div');
+    div.className=`day-cell${cell.outside?' outside':''}${holiday?' holiday':''}${cell.date===today?' is-today':''}`;
+    div.dataset.date=cell.date;
+    const supported=Number(cell.date.slice(0,4))>=MIN_YEAR&&Number(cell.date.slice(0,4))<=MAX_YEAR;
+    div.innerHTML=`<div class="date-line"><button class="date-button" aria-label="${cell.date}${holiday?' '+esc(holiday):''} 일정 등록" ${supported?'':'disabled'} ${cell.date===today?'aria-current="date"':''}>${cell.day}</button>${holiday?`<span class="holiday-name" title="${esc(holiday)}">${esc(holiday)}</span>`:''}</div>`;
+    div.addEventListener('click',()=>{if(supported)openEvent(null,cell.date);});
+    const dayEvents=filtered.filter(e=>e.start<=cell.date&&e.end>=cell.date),iconEvents=dayEvents.filter(e=>e.icon);
+    if(iconEvents.length){
+      const group=document.createElement('div');
+      group.className=`day-icons${iconEvents.length>1?' multiple':''}${iconEvents.length>3?' crowded':''}`;
+      group.setAttribute('role','group');group.setAttribute('aria-label',`${cell.date} 일정 아이콘 ${iconEvents.length}개`);
+      for(const event of iconEvents){
+        const icon=document.createElement('button');icon.type='button';icon.className='day-icon';icon.textContent=event.icon;
+        icon.title=event.title;icon.setAttribute('aria-label',`${event.title}, 일정 수정 또는 삭제`);
+        bindEvent(icon,event);group.append(icon);
+      }
+      div.append(group);
+    }
+    for(const event of dayEvents){
+      const button=document.createElement('button');button.className=`event-chip ${eventColor(event)}${event.start<cell.date?' continuation':''}`;
+      button.textContent=event.title;
+      button.title=`${event.title} · ${rangeText(event,true)}${lunarLabel(event)?' · '+lunarLabel(event):''}${event.note?'\n'+event.note:''}`;
+      button.setAttribute('aria-label',`${event.title}, ${rangeText(event,true)}, 수정 또는 삭제`);bindEvent(button,event);div.append(button);
+    }
+    fragment.append(div);
+  }
+  $('calendar').replaceChildren(fragment);
+}
 function renderSummary(){for(const kind of ['suwon','ulsan']){const next=events.filter(e=>e.kind===kind&&e.end>=today).sort((a,b)=>a.start.localeCompare(b.start))[0];$(`${kind}-next`).textContent=next?rangeText(next):'아직 정해진 방문이 없어요';$(`${kind}-detail`).textContent=next?(next.note||'함께할 시간을 기다리고 있어요'):'방문 일정을 등록해 보세요';const days=next?Math.round((parseDate(next.start)-parseDate(today))/86400000):null;$(`${kind}-count`).textContent=next?(days<=0?'방문 중':`D−${days}`):'♡';}}
 function renderUpcoming(){const list=upcoming(currentEvents());$('upcoming-count').textContent=`${list.length}개의 일정`;const fragment=document.createDocumentFragment();if(!list.length){const empty=document.createElement('div');empty.className='empty-state';empty.innerHTML=`<span class="empty-icon">🌿</span><strong>${hasLoaded?'기다려지는 날을 하나 더해 볼까요?':'가족 달력을 연결하고 있어요'}</strong><p>${hasLoaded?'앞으로 3개월 동안의 일정이 이곳에 모여요.':'연결 후 가족의 일정이 여기에 표시됩니다.'}</p><button>＋ 첫 일정 등록하기</button>`;empty.querySelector('button').onclick=()=>openEvent();fragment.append(empty);}for(const event of list){const d=parseDate(event.start),button=document.createElement('button');button.className='upcoming-item';button.innerHTML=`<div class="upcoming-date"><span>${d.getFullYear()!==Number(today.slice(0,4))?d.getFullYear()+'. ':''}${d.getMonth()+1}월</span>${d.getDate()}</div><div class="upcoming-content"><strong>${esc(event.icon)} ${esc(event.title)}</strong><p>${esc(rangeText(event))}${event.start<today?' · 진행 중':''}${lunarLabel(event)?' · '+esc(lunarLabel(event)):''}</p><span class="category-label ${eventColor(event)}">${kinds[event.kind].label}</span></div>`;bindEvent(button,event);fragment.append(button);}$('upcoming-list').replaceChildren(fragment);}
 function render(){renderCalendar();renderSummary();renderUpcoming();}

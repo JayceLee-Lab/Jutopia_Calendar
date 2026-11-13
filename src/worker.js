@@ -29,8 +29,19 @@ export default {
       if (!body || typeof body!=='object') return json({error:'일정 내용을 확인해 주세요.'},400);
       if (request.method==='DELETE') {
         if (typeof body.id!=='string'||!Number.isInteger(body.revision)) return json({error:'일정을 확인해 주세요.'},400);
+        const scope=body.delete_scope??'one';
+        if(!['one','series'].includes(scope))return json({error:'삭제 범위를 확인해 주세요.'},400);
+        if(scope==='series'){
+          const existing=await env.DB.prepare('SELECT id,revision,series_id,repeat_rule FROM events WHERE id=? AND family=?').bind(body.id,family).all();
+          const current=existing.results[0];
+          if(!current||current.revision!==body.revision)return json({error:'다른 가족이 수정했거나 삭제한 일정입니다. 최신 일정을 확인해 주세요.'},409);
+          if(!current.series_id||current.repeat_rule==='none')return json({error:'연결된 반복 일정이 없습니다. 현재 일정만 삭제해 주세요.'},400);
+          const sql="WITH authorized AS MATERIALIZED (SELECT series_id FROM events WHERE id=? AND family=? AND revision=? AND series_id<>'' AND repeat_rule<>'none') DELETE FROM events WHERE family=? AND series_id IN (SELECT series_id FROM authorized)";
+          const result=await env.DB.prepare(sql).bind(body.id,family,body.revision,family).run();
+          return result.meta.changes?json({ok:true,deleted_count:result.meta.changes}):json({error:'다른 가족이 먼저 수정했습니다. 최신 일정을 다시 열어 주세요.'},409);
+        }
         const result=await env.DB.prepare('DELETE FROM events WHERE id = ? AND family = ? AND revision = ?').bind(body.id,family,body.revision).run();
-        return result.meta.changes?json({ok:true}):json({error:'다른 가족이 수정했거나 삭제한 일정입니다. 최신 일정을 확인해 주세요.'},409);
+        return result.meta.changes?json({ok:true,deleted_count:1}):json({error:'다른 가족이 수정했거나 삭제한 일정입니다. 최신 일정을 확인해 주세요.'},409);
       }
       if (!['POST','PUT'].includes(request.method)) return json({error:'지원하지 않는 요청입니다.'},405);
       const title=typeof body.title==='string'?body.title.trim():'';

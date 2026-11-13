@@ -78,3 +78,18 @@ export function expandEvent(event, repeat='none', until=defaultRepeatUntil(event
 }
 export function monthCells(year,month) { const first=new Date(year,month,1,12), count=new Date(year,month+1,0).getDate(); const total=Math.ceil((first.getDay()+count)/7)*7; return Array.from({length:total},(_,i)=>{ const d=new Date(year,month,i-first.getDay()+1,12);return {date:dateKey(d),day:d.getDate(),outside:d.getMonth()!==month}; }); }
 export function upcoming(events,today=todayKey()) { const end=parseDate(today); const day=end.getDate();end.setDate(1);end.setMonth(end.getMonth()+3);end.setDate(Math.min(day,new Date(end.getFullYear(),end.getMonth()+1,0).getDate()));return events.filter(e=>e.end>=today&&e.start<=dateKey(end)).sort((a,b)=>a.start.localeCompare(b.start)||a.title.localeCompare(b.title)); }
+
+export function layoutWeekEvents(events,cells){
+  const dates=cells.map(cell=>typeof cell==='string'?cell:cell.date),first=dates[0],last=dates.at(-1);
+  const visible=events.filter(event=>event.start<=last&&event.end>=first);
+  const masks=[],periods=[];
+  for(const event of visible.filter(e=>e.start!==e.end).sort((a,b)=>a.start.localeCompare(b.start)||b.end.localeCompare(a.end)||String(a.id).localeCompare(String(b.id)))){
+    const startColumn=event.start<first?0:dates.indexOf(event.start),endColumn=event.end>last?dates.length-1:dates.indexOf(event.end);
+    let lane=0;while(masks[lane]?.some((used,column)=>used&&column>=startColumn&&column<=endColumn))lane++;
+    if(!masks[lane])masks[lane]=Array(dates.length).fill(false);
+    for(let column=startColumn;column<=endColumn;column++)masks[lane][column]=true;
+    periods.push({event,startColumn,endColumn,lane,starts:event.start>=first,ends:event.end<=last});
+  }
+  const singles=dates.map(date=>visible.filter(event=>event.start===date&&event.end===date));
+  return {periods,singles,periodLaneCount:masks.length,eventRowCount:masks.length+Math.max(0,...singles.map(items=>items.length))};
+}

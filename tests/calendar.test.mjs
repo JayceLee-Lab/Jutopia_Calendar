@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {validDate,expandEvent,monthCells,upcoming,lunarToSolar,solarToLunar,eventColor,defaultRepeatUntil} from '../src/calendar.js';
+import {validDate,expandEvent,monthCells,upcoming,lunarToSolar,solarToLunar,eventColor,defaultRepeatUntil,layoutWeekEvents} from '../src/calendar.js';
 import worker from '../dist/server/index.js';
 const event={title:'수원 할머니 방문',kind:'suwon',icon:'🌷',start:'2026-11-13',end:'2026-11-15',note:'아이들과 함께'};
 const holidays=JSON.parse(readFileSync('data/holidays.json','utf8'));
@@ -205,4 +205,37 @@ test('existing ambiguous duplicate records are not deleted or automatically merg
 test('lunar recurrence conversion reuses the proper lunar-year record and never another family calendar',async()=>{
   const env=database(),base={...event,start:'2026-02-17',end:'2026-02-17',calendar_type:'lunar',lunar_start:JSON.stringify({year:2026,month:1,day:1,leap:false})};await request(env,'POST',base);const future={...base,start:'2027-02-07',end:'2027-02-07',lunar_start:JSON.stringify({year:2027,month:1,day:1,leap:false})};await request(env,'POST',future);await request(env,'POST',future,familyB);
   const before=(await (await request(env)).json()).events;assert.equal((await request(env,'PUT',{...before[0],repeat:'yearly',until:'2027-12-31'})).status,200);const after=(await (await request(env)).json()).events;assert.equal(after.length,2);assert.equal(after[1].id,before[1].id);assert.equal(after[1].lunar_start,future.lunar_start);assert.ok(after[1].series_id);const other=(await (await request(env,'GET',null,familyB)).json()).events;assert.equal(other.length,1);assert.equal(other[0].series_id,'');assert.equal(other[0].revision,1);
+});
+
+test('series deletion removes every occurrence including past dates but preserves same-name independent and other-series records',async()=>{
+  const env=database();for(let i=0;i<2;i++)await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'});await request(env,'POST',event);await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'},familyB);
+  const before=(await (await request(env)).json()).events,selected=before.find(e=>e.start==='2026-11-20'),targetSeries=selected.series_id;const preserved=before.filter(e=>e.series_id!==targetSeries);
+  const response=await request(env,'DELETE',{id:selected.id,revision:selected.revision,delete_scope:'series'});assert.equal(response.status,200);assert.equal((await response.json()).deleted_count,3);const after=(await (await request(env)).json()).events;assert.equal(after.length,4);assert.deepEqual(after.map(e=>e.id).sort(),preserved.map(e=>e.id).sort());assert.equal((await (await request(env,'GET',null,familyB)).json()).events.length,3);
+});
+test('single occurrence deletion keeps the remaining series and allows subsequent explicit series deletion',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'});const before=(await (await request(env)).json()).events;const response=await request(env,'DELETE',{id:before[1].id,revision:before[1].revision,delete_scope:'one'});assert.equal((await response.json()).deleted_count,1);let after=(await (await request(env)).json()).events;assert.equal(after.length,2);assert.ok(after.every(e=>e.series_id===before[0].series_id));
+  assert.equal((await (await request(env,'DELETE',{id:after[0].id,revision:after[0].revision,delete_scope:'series'})).json()).deleted_count,2);assert.equal((await (await request(env)).json()).events.length,0);
+});
+test('stale or foreign series deletion cannot remove any occurrence',async()=>{
+  const env=database();await request(env,'POST',{...event,repeat:'weekly',until:'2026-11-27'});const before=(await (await request(env)).json()).events,selected=before[0];await request(env,'PUT',{...selected,note:'먼저 수정한 메모'});
+  assert.equal((await request(env,'DELETE',{id:selected.id,revision:selected.revision,delete_scope:'series'})).status,409);const latest=(await (await request(env)).json()).events[0];assert.equal((await request(env,'DELETE',{id:latest.id,revision:latest.revision,delete_scope:'series'},familyB)).status,409);assert.equal((await request(env,'DELETE',{id:latest.id,revision:latest.revision,delete_scope:'invalid'})).status,400);assert.equal((await (await request(env)).json()).events.length,3);
+});
+test('independent records cannot request group deletion and omitted scope still deletes one record only',async()=>{
+  const env=database();await request(env,'POST',event);await request(env,'POST',event);const rows=(await (await request(env)).json()).events;
+  assert.equal((await request(env,'DELETE',{id:rows[0].id,revision:rows[0].revision,delete_scope:'series'})).status,400);assert.equal((await (await request(env)).json()).events.length,2);
+  assert.equal((await request(env,'DELETE',{id:rows[0].id,revision:rows[0].revision})).status,200);assert.equal((await (await request(env)).json()).events.length,1);
+});
+
+test('multi-day bars clip at week boundaries with continuation markers and separate overlapping lanes',()=>{
+  const days=Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`),events=[{...event,id:'early',start:'2026-11-09',end:'2026-11-10'},{...event,id:'long',start:'2026-11-13',end:'2026-11-18'},{...event,id:'overlap',start:'2026-11-14',end:'2026-11-16'}];
+  const first=layoutWeekEvents(events,days),long=first.periods.find(s=>s.event.id==='long'),overlap=first.periods.find(s=>s.event.id==='overlap');assert.deepEqual([long.startColumn,long.endColumn,long.starts,long.ends],[5,6,true,false]);assert.notEqual(long.lane,overlap.lane);assert.equal(first.periodLaneCount,2);
+  const next=layoutWeekEvents(events,Array.from({length:7},(_,i)=>`2026-11-${15+i}`));const continued=next.periods.find(s=>s.event.id==='long');assert.deepEqual([continued.startColumn,continued.endColumn,continued.starts,continued.ends],[0,3,false,true]);
+});
+test('distinct same-name periods stay separate and single-day event text is never capped',()=>{
+  const days=Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`),periods=[{...event,id:'first',start:'2026-11-09',end:'2026-11-12'},{...event,id:'second',start:'2026-11-09',end:'2026-11-12'}];const singles=Array.from({length:12},(_,i)=>({...event,id:'single-'+i,title:'긴 일정 이름 '+i,start:'2026-11-10',end:'2026-11-10'}));
+  const layout=layoutWeekEvents([...periods,...singles],days);assert.equal(layout.periods.length,2);assert.equal(layout.periodLaneCount,2);assert.equal(layout.singles[2].length,12);assert.equal(layout.eventRowCount,14);
+});
+test('two-day periods spanning Saturday and Sunday render one segment in each week',()=>{
+  const event={id:'boundary',title:'주말 방문',start:'2026-11-14',end:'2026-11-15'};
+  const before=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${String(8+i).padStart(2,'0')}`)).periods[0],after=layoutWeekEvents([event],Array.from({length:7},(_,i)=>`2026-11-${15+i}`)).periods[0];assert.deepEqual([before.startColumn,before.endColumn,before.starts,before.ends],[6,6,true,false]);assert.deepEqual([after.startColumn,after.endColumn,after.starts,after.ends],[0,0,false,true]);
 });

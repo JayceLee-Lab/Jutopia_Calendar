@@ -95,3 +95,5 @@ input,select,textarea{font-size:1rem}
 .day-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;max-width:100%;border:0;background:transparent;border-radius:5px;padding:3px;font-size:var(--day-icon-size);line-height:1.25;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .day-icon:hover{background:#edf2e5}.day-icon:focus-visible{outline-offset:1px}
 @media(max-width:600px){.day-icons{gap:1px;--day-icon-size:1.375rem}.day-icons.multiple{--day-icon-size:.9375rem}.day-icons.crowded{--day-icon-size:.8125rem}.day-icon{padding:2px}}
+
+main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px 40px}main>.intro:last-child .eyebrow{justify-content:center}

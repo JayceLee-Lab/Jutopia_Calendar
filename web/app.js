@@ -11,12 +11,10 @@ function applyTextSize(size){
   $('font-size-value').textContent=`${size}%`;
   $('font-decrease').disabled=size===textSizes[0];
   $('font-increase').disabled=size===textSizes.at(-1);
-  $('font-reset').disabled=size===100;
   try{storage?.setItem('jutopia-text-size',String(size));}catch{}
 }
 $('font-decrease').onclick=()=>applyTextSize(textSizes[Math.max(0,textSizes.indexOf(textSize)-1)]);
 $('font-increase').onclick=()=>applyTextSize(textSizes[Math.min(textSizes.length-1,textSizes.indexOf(textSize)+1)]);
-$('font-reset').onclick=()=>applyTextSize(100);
 applyTextSize(textSize);
 const invited=new URLSearchParams(location.hash.slice(1)).get('family');
 let remembered;try{remembered=storage?.getItem('jutopia-family');}catch{}

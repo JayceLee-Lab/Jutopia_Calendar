@@ -20,7 +20,7 @@ jobs:
       - run: npm run build
       - run: npm test
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_TARGET == 'cloudflare'
     needs: test
     runs-on: ubuntu-latest
     environment: production

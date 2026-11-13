@@ -2,6 +2,16 @@
 
 수원 할머니와 울산 할머니의 방문, 가족 생일과 행사를 함께 관리하는 한국어 월별 달력입니다.
 
+## 운영 사이트
+
+**https://jutopia-family-calendar.bluishferry16.chatgpt.site**
+
+Sites에 배포되어 있으며 Cloudflare D1 공유 저장소가 연결되어 있습니다. 추가 Cloudflare 계정 설정 없이 사용 가능합니다. 최초 배포 시 본인만 접속할 수 있는 비공개 설정을 유지했습니다. 가족이 접속하려면 Sites의 사이트 공유 설정에서 접근 권한을 부여해야 하며, 가족끼리 같은 초대 링크를 사용해야 같은 일정이 표시됩니다. 접근 권한 변경 시 이 안내도 업데이트합니다.
+
+운영 서버에서 HTML·CSS·JS·공휴일 응답과 일정 등록 → 별도 요청에서 조회 → 수정 → 삭제 및 가족별 격리를 확인했습니다. 검증 데이터는 삭제했습니다. 브라우저 화면 렌더링 검증은 이 환경의 브라우저 도구 미제공으로 수행하지 못했습니다.
+
+일정을 저장하면 서버에 즉시 반영되고 다른 가족의 열린 페이지는 약 15초 내 갱신됩니다. GitHub 코드 변경은 Sites 소스 동기화·재배포가 필요합니다. 아래 Cloudflare 자동 배포는 별도 선택 사항이며, 설정 전에는 실행하지 않습니다.
+
 ## 기능
 
 - 2020–2035년 월별 조회, 오늘 이동, 연·월 선택
@@ -16,7 +26,7 @@
 
 ## 실행·검증
 
-Node.js 24 권장 (22.13 이상). 런타임 외 설치할 npm 의존성이 없습니다.
+Node.js 24 권장 (22.13 이상). 기본 실행은 Node.js만 필요하며, 스키마 생성 도구를 사용하려면 먼저 `npm ci`로 개발 의존성을 설치합니다.
 
 ```sh
 npm run build
@@ -36,9 +46,9 @@ npm run dev
 
 저장 성공 시 현재 화면에 반영하고 다른 열린 페이지는 최대 약 15초 뒤 갱신됩니다. 네트워크 지연·단절 시 상태를 표시하며 다시 연결되면 갱신합니다. 오프라인 저장은 지원하지 않습니다. 일정 데이터 수정에는 Git 커밋·사이트 재배포가 필요하지 않습니다.
 
-## GitHub 커밋 → 자동 배포
+## 선택 사항: 독립 Cloudflare 계정으로 자동 배포
 
-`.github/workflows/deploy.yml`은 `main` push 시 테스트 → DB 마이그레이션 → Cloudflare Worker 배포를 수행합니다. 최초 1회 아래 설정이 필요합니다. 이후 GitHub 웹에서 HTML을 편집하고 **Commit changes**로 main에 저장하거나 로컬에서 commit/push하면 같은 주소로 자동 배포됩니다. 보통 수분이 걸리며 Actions에서 완료 여부를 확인합니다. GitHub 편집기의 임시 저장이나 로컬 파일 저장만으로는 배포되지 않습니다.
+현재 운영 사이트는 Sites입니다. `.github/workflows/deploy.yml`은 모든 `main` push에서 빌드·테스트를 실행합니다. 저장소 Variable `DEPLOY_TARGET=cloudflare`를 설정한 경우에만 별도 Cloudflare Worker 배포도 실행합니다. 이 경로를 선택하려면 최초 1회 아래 설정이 필요합니다. 이후 GitHub 웹에서 HTML을 편집하고 **Commit changes**로 main에 저장하거나 로컬에서 commit/push하면 같은 주소로 자동 배포됩니다. 보통 수분이 걸리며 Actions에서 완료 여부를 확인합니다. GitHub 편집기의 임시 저장이나 로컬 파일 저장만으로는 배포되지 않습니다.
 
 ### 최초 Cloudflare 설정
 
@@ -48,6 +58,7 @@ npm run dev
 
 | 종류 | 이름 | 값 |
 | --- | --- | --- |
+| Variable | `DEPLOY_TARGET` | `cloudflare` (독립 배포 활성화) |
 | Secret | `CLOUDFLARE_API_TOKEN` | Cloudflare API 토큰 |
 | Variable | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 계정 ID |
 | Variable | `CLOUDFLARE_D1_DATABASE_ID` | 생성한 DB의 UUID |
@@ -56,9 +67,9 @@ npm run dev
 4. GitHub **Actions → Validate and deploy family calendar → Run workflow**를 실행합니다. 첫 배포에서 스키마가 적용됩니다.
 5. 배포 로그에 출력된 `https://jutopia-calendar.<계정>.workers.dev` 주소를 이용합니다. Cloudflare에 공개된 앱이지만 개별 일정 접근에는 가족 코드가 필요합니다.
 
-환경 설정이 없으면 배포 job은 명확한 오류를 표시합니다. 테스트 job은 독립적으로 실행됩니다. 배포가 성공하기 전까지는 사이트 운영 또는 자동 반영이 활성화된 것이 아닙니다. GitHub 조직 정책이나 production 환경 승인 규칙이 설정되어 있으면 승인까지 배포가 대기할 수 있습니다.
+`DEPLOY_TARGET`이 없으면 독립 배포 job은 건너뜁니다. `DEPLOY_TARGET=cloudflare`인데 필수 값이 없으면 명확한 오류를 표시합니다. 테스트 job은 독립적으로 실행됩니다. 이 설정은 위 Sites 운영 사이트에 영향을 주지 않습니다. GitHub 조직 정책이나 production 환경 승인 규칙이 설정되어 있으면 승인까지 배포가 대기할 수 있습니다.
 
-Sites용 프로젝트 매니페스트 `.openai/hosting.json`도 포함합니다. Sites 미리보기와 Cloudflare 독립 배포는 서로 별도 환경·별도 DB입니다. 한 운영 주소를 정해서 가족 모두 같은 주소와 초대 링크를 사용해야 합니다. Sites에 배포한 경우 별도로 허용된 방문자만 접속할 수 있습니다.
+Sites 운영 설정은 `.openai/hosting.json`에 포함합니다. Sites 운영과 Cloudflare 독립 배포는 서로 별도 환경·별도 DB입니다. 한 운영 주소를 정해서 가족 모두 같은 주소와 초대 링크를 사용해야 합니다. Sites에 배포한 경우 별도로 허용된 방문자만 접속할 수 있습니다.
 
 ## 공휴일 데이터
 
@@ -79,7 +90,8 @@ npm test
 - `src/calendar.js`: 날짜, 반복, 3개월 필터
 - `src/worker.js`: 공유 API와 정적 파일 응답
 - `data/holidays.json`: 오프라인 공휴일 데이터
-- `migrations/`: D1 스키마
+- `db/schema.ts`, `drizzle/`: Sites용 스키마 및 자동 적용 마이그레이션 (`npm run db:generate`)
+- `migrations/`: 독립 Cloudflare 및 로컬 SQLite용 스키마
 - `scripts/build.mjs`: 정적 파일을 포함하는 단일 Worker 빌드
 - `scripts/dev.mjs`: SQLite 기반 로컬 서버
 - `tests/`: 날짜 경계, 공휴일, 공유 저장·격리·수정 충돌 테스트

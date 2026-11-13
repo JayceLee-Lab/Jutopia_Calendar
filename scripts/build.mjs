@@ -1,4 +1,4 @@
-import {readFile,mkdir,writeFile,copyFile} from 'node:fs/promises';
+import {readFile,mkdir,writeFile,copyFile,cp} from 'node:fs/promises';
 const assets={};
 for(const [path,file,type] of [
  ['/index.html','web/index.html','text/html; charset=utf-8'],
@@ -14,3 +14,5 @@ await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursiv
 await writeFile('dist/server/index.js',utility+'\n'+worker);
 await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
 console.log('Built self-contained Worker + calendar assets.');
+
+await cp('drizzle','dist/drizzle',{recursive:true});

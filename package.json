@@ -8,5 +8,11 @@
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs"
   },
-  "engines": { "node": ">=22.13" }
+  "engines": {
+    "node": ">=22.13"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.9",
+    "drizzle-orm": "^0.44.7"
+  }
 }

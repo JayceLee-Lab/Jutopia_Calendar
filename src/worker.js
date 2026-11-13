@@ -34,7 +34,7 @@ export default {
       }
       if (!['POST','PUT'].includes(request.method)) return json({error:'지원하지 않는 요청입니다.'},405);
       const title=typeof body.title==='string'?body.title.trim():'';
-      if (!title || title.length>80 || !kinds[body.kind] || !icons.includes(body.icon) || !validDate(body.start) || !validDate(body.end) || body.end<body.start || typeof body.note!=='string' || body.note.length>1000) return json({error:'제목, 날짜, 메모를 확인해 주세요.'},400);
+      if (!title || title.length>80 || (typeof body.kind!=='string' || !Object.hasOwn(kinds,body.kind)) || !icons.includes(body.icon) || !validDate(body.start) || !validDate(body.end) || body.end<body.start || typeof body.note!=='string' || body.note.length>1000) return json({error:'제목, 날짜, 메모를 확인해 주세요.'},400);
       const event={title,kind:body.kind,icon:body.icon,start:body.start,end:body.end,note:body.note.trim()}, now=new Date().toISOString();
       if (request.method==='PUT') {
         if (typeof body.id!=='string'||!Number.isInteger(body.revision)) return json({error:'일정을 확인해 주세요.'},400);

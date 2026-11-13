@@ -143,3 +143,5 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 
 .day-icons.overflow{gap:1px}.day-icons.overflow .day-icon{padding:0;font-size:.8125rem}.day-icons-more{border:0;border-radius:4px;background:#edf2e5;color:#547046;font-size:.6875rem;font-weight:650;line-height:1.7;padding:0 1px;white-space:nowrap;min-width:14px}.day-icons-more:hover{background:#dae6cf}.more-icons-list{display:flex;flex-direction:column;gap:8px;max-height:55dvh;overflow:auto}.more-icon-event{display:flex;align-items:center;gap:12px;border:1px solid #dde5d5;background:#fff;border-radius:8px;padding:12px;text-align:left;font-size:1rem;overflow-wrap:anywhere}.more-icon-event:hover{border-color:#9eb78c}.more-icon-symbol{font-size:1.5rem;flex-shrink:0}
 @media(max-width:360px){.day-icons.overflow{gap:0}.day-icons.overflow .day-icon{font-size:.6875rem}.day-icons-more{font-size:.625rem;min-width:12px}}
+
+.same-day-add{width:100%;margin-top:18px;border-style:dashed;color:#5c7750;background:#f5f8f0;font-size:.9375rem}.same-day-add:hover{background:#eaf1e1}

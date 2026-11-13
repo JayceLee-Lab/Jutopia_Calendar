@@ -170,3 +170,14 @@ test('series-wide content editing can accompany a recurrence change while retain
   const result=await request(env,'PUT',{...before[1],repeat:'monthly',until:'2027-01-31',color:'mint',icon:'🍀',apply_scope:'series'});assert.equal(result.status,200);assert.equal((await result.json()).updated_count,4);const rows=(await (await request(env)).json()).events;
   assert.deepEqual(rows.map(e=>e.start),['2026-11-13','2026-11-20','2026-12-20','2027-01-20']);assert.ok(rows.every(e=>e.icon==='🍀'&&e.color==='mint'));assert.equal(rows[0].id,before[0].id);
 });
+
+test('different named family events on the same date have independent IDs and edit/delete safely',async()=>{
+  const env=database(),titles=['가족 외식','학교 행사','영화 관람'];for(const title of titles)assert.equal((await request(env,'POST',{...event,kind:'family',title})).status,201);
+  let rows=(await (await request(env)).json()).events;assert.equal(rows.length,3);assert.equal(new Set(rows.map(e=>e.id)).size,3);assert.deepEqual(rows.map(e=>e.title).sort(),titles.sort());
+  const selected=rows[0];assert.equal((await request(env,'PUT',{...selected,title:'개별 수정'})).status,200);rows=(await (await request(env)).json()).events;assert.equal(rows.filter(e=>e.title==='개별 수정').length,1);assert.equal(rows.length,3);
+  assert.equal((await request(env,'DELETE',{id:selected.id,revision:2})).status,200);assert.equal((await (await request(env)).json()).events.length,2);
+});
+test('overlapping recurring family events remain separate series on matching dates',async()=>{
+  const env=database();for(const title of ['가족 운동','가족 독서'])assert.equal((await request(env,'POST',{...event,kind:'family',title,repeat:'weekly',until:'2026-11-27'})).status,201);
+  const rows=(await (await request(env)).json()).events;assert.equal(rows.length,6);assert.equal(new Set(rows.map(e=>e.series_id)).size,2);for(const date of ['2026-11-13','2026-11-20','2026-11-27'])assert.equal(rows.filter(e=>e.start===date).length,2);
+});

@@ -132,3 +132,6 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 
 .brand-copy{grid-template-columns:auto minmax(0,1fr) auto;transform:translateY(13px)}.brand-copy .brand-heart{display:block;width:1.5rem;height:1.5rem;color:#aaba78;transform:none}.brand-title-main{font-weight:750}.brand-title-light{font-weight:500}
 @media(max-width:600px){.brand-copy{transform:translateY(10px)}.brand-copy .brand-heart{width:1.125rem;height:1.125rem}}
+
+.brand-copy .brand-title-staggered{display:flex;flex-direction:column;gap:3px;min-width:10.5em;max-width:100%;line-height:1.5}.brand-title-first{display:block;text-align:left}.brand-title-second{display:block;text-align:right;padding-left:2em}
+@media(max-width:600px){.brand-copy .brand-title-staggered{min-width:0;width:100%;gap:2px}.brand-title-second{padding-left:1em}}

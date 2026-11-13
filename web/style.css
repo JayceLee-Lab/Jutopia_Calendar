@@ -136,8 +136,10 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 .brand-copy .brand-title-staggered{display:flex;flex-direction:column;gap:3px;min-width:10.5em;max-width:100%;line-height:1.5}.brand-title-first{display:block;text-align:left}.brand-title-second{display:block;text-align:right;padding-left:2em}
 @media(max-width:600px){.brand-copy .brand-title-staggered{min-width:0;width:100%;gap:2px}.brand-title-second{padding-left:1em}}
 .brand-title-main{font-size:1.08em}
-.brand-title-second{transform:translateX(.65em)}
-@media(max-width:600px){.brand-title-second{transform:translateX(.4em)}}
+.brand-copy{--brand-title-extra:1rem;padding-inline-end:var(--brand-title-extra)}
+.brand-title-second{transform:translateX(calc(.65em + var(--brand-title-extra)))}
+.brand-copy .brand-flower{transform:translateX(var(--brand-title-extra))}
+@media(max-width:600px){.brand-title-second{transform:translateX(calc(.4em + var(--brand-title-extra)))}}
 
 .day-cell{display:flex;flex-direction:column}.day-cell>.date-line,.day-cell>.event-chip{flex-shrink:0}.day-cell>.day-icons{margin-top:auto;margin-bottom:0;padding-top:6px;flex-shrink:0}
 
@@ -172,3 +174,18 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 .brand-heading{display:flex;align-items:center;gap:12px;min-width:0;flex:1}.topbar .reading-toolbar{margin:0;padding:0;gap:4px;flex-wrap:nowrap;flex:0 0 auto;max-width:none;transform:translateY(12px)}.topbar .font-controls button{min-width:22px;min-height:26px;padding:2px 5px;font-size:.75rem;line-height:1.3}.topbar .font-controls output{min-width:34px;font-size:.6875rem}.topbar .font-reset{min-width:24px;min-height:26px;padding:2px 5px;font-size:.8125rem;line-height:1.3}.bottom-sharing{max-width:1140px;margin:0 auto;padding:0 30px 30px;text-align:right}.bottom-sharing .share-button{background:#f1f5e9;padding:11px 20px}
 @media(max-width:600px){.brand-heading{width:100%;gap:7px}.topbar .brand{gap:6px}.topbar .reading-toolbar{gap:3px;transform:translateY(10px)}.topbar .font-controls button{min-width:20px;padding:2px 4px;font-size:.6875rem}.topbar .font-controls output{min-width:30px;font-size:.625rem}.topbar .font-reset{min-width:22px;padding:2px 4px}.bottom-sharing{padding:0 20px 25px}.bottom-sharing .share-button{width:100%;font-size:.9375rem}}
 @media(max-width:380px){.topbar .reading-toolbar{flex-direction:column;align-items:flex-end;gap:2px;transform:translateY(6px)}}
+
+/* Keep the header controls comfortable wherever the title leaves room. */
+.brand-heading{flex-basis:500px}.topbar .font-controls button{min-width:26px;min-height:30px;padding:3px 6px;font-size:.8125rem}.topbar .font-controls output{min-width:38px;font-size:.75rem}.topbar .font-reset{min-width:28px;min-height:30px;font-size:.875rem}
+@media(min-width:430px) and (max-width:600px){.topbar .font-controls button{min-width:22px;min-height:28px;padding:2px 4px;font-size:.75rem}.topbar .font-controls output{min-width:34px;font-size:.6875rem}.topbar .font-reset{min-width:24px;min-height:28px;font-size:.8125rem}}
+@media(max-width:429px){.topbar .reading-toolbar{flex-direction:column;align-items:flex-end;gap:2px;transform:translateY(6px)}.topbar .font-controls button{min-width:20px;min-height:26px;padding:2px 4px;font-size:.6875rem}.topbar .font-controls output{min-width:30px;font-size:.625rem}.topbar .font-reset{min-width:22px;min-height:26px;font-size:.8125rem}}
+@media(max-width:360px){.brand-heading{flex-wrap:wrap}.topbar .brand{flex:1 1 100%}.topbar .reading-toolbar{flex-direction:row;margin-left:auto;transform:none}}
+
+/* Four Korean characters and a space fit one mobile cell at the default size. */
+html{--calendar-text-scale:1}html[data-text-size="115"]{--calendar-text-scale:1.15}html[data-text-size="130"]{--calendar-text-scale:1.3}html[data-text-size="150"]{--calendar-text-scale:1.5}
+.calendar{container-type:inline-size}
+@media(max-width:600px){
+ .calendar-week>.day-cell{padding-inline:1px}
+ .calendar-week .event-chip,.calendar-week>.period-bar:not(.grandma-line){font-size:calc(min(13px, calc((100cqi / 7 - 4px) / 4.4)) * var(--calendar-text-scale));letter-spacing:-.015em;padding-inline:0}
+ .calendar-week .event-chip{border-left-width:1px}
+}

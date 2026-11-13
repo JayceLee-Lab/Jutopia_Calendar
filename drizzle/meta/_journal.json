@@ -8,6 +8,13 @@
       "when": 1794546108918,
       "tag": "0000_lean_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794564807208,
+      "tag": "0001_sloppy_vargas",
+      "breakpoints": true
     }
   ]
 }

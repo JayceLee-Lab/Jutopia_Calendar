@@ -67,3 +67,23 @@ input,select,textarea{font-size:1rem}
  .date-row>label{min-width:130px}.date-row input{font-size:1rem;padding:9px}
  .font-controls button{min-width:40px}.calendar-hint{display:none}
 }
+/* The calendar leads; family visits and supporting text follow it. */
+.brand{font-size:1.25rem;letter-spacing:-.06em;line-height:1.45;max-width:100%;min-width:0}
+.brand>span:last-child{min-width:0;overflow-wrap:anywhere}.brand-mark{flex-shrink:0}
+.footer-brand{font-size:1rem;letter-spacing:-.04em}
+.calendar-first{margin-top:26px}
+.visit-summary{margin-top:30px;margin-bottom:15px}
+.intro{padding:25px 0 12px}.intro h1{font-size:1.5rem}.intro-note{display:none}
+.calendar{touch-action:pan-y pinch-zoom}
+.pink{background:#f9e5ed;color:#995871}.butter{background:#fbf1c9;color:#887026}.mint{background:#e1f2e8;color:#39745b}.lilac{background:#f0e2f5;color:#895d9d}.aqua{background:#dff1f1;color:#397b7e}.sand{background:#eee7dc;color:#846b49}
+.color-field{padding:0;border:0;margin:18px 0}.color-field legend{font-size:.9375rem;font-weight:550;margin-bottom:10px}
+.color-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.color-option{border:2px solid transparent;border-radius:9px;min-height:44px;padding:7px 2px;font-size:.8125rem;font-weight:550;position:relative}
+.color-option.selected{border-color:currentColor;box-shadow:0 0 0 2px #fff inset}
+.lunar-inputs{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}.lunar-inputs label{min-width:0}
+.lunar-inputs select{padding:10px 4px}
+.lunar-options{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.lunar-options>label:last-child{flex:1;min-width:130px}
+.checkbox-label{display:flex;align-items:center;gap:8px;font-size:1rem;white-space:nowrap}
+.checkbox-label input{width:20px;height:20px;accent-color:var(--green);margin:0}
+#lunar-preview{padding:10px 12px;background:#eef3e8;border-radius:7px;color:#526b43;font-size:.875rem;overflow-wrap:anywhere}
+@media(max-width:600px){.brand{font-size:1.05rem;max-width:100%;flex-shrink:1}.brand-mark{width:31px;height:31px}.topbar{column-gap:10px}.topbar .share-button{margin-left:auto}.calendar-first{margin-top:20px}.visit-summary{margin-top:24px}.intro{padding:20px 4px 5px}.intro h1{font-size:1.25rem}.intro .mobile-break{display:none}.lunar-inputs{gap:5px}.lunar-inputs select{font-size:.9375rem}.color-options{gap:6px}.color-option{font-size:.75rem}}

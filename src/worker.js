@@ -1,4 +1,4 @@
-import { validDate, expandEvent, icons, kinds } from './calendar.js';
+import { validDate, expandEvent, icons, kinds, colors, lunarToSolar, readLunar } from './calendar.js';
 // Build injects the static asset map here. No network dependency for the UI.
 const assets = __ASSETS__;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
@@ -20,7 +20,7 @@ export default {
       if (!env.DB) return json({error:'공유 저장소 연결이 필요합니다. 관리자에게 문의해 주세요.'},503);
       const family=await hash(code);
       if (request.method==='GET') {
-        const {results}=await env.DB.prepare('SELECT id,title,kind,icon,start,end,note,revision,updated_at FROM events WHERE family = ? ORDER BY start,title').bind(family).all();
+        const {results}=await env.DB.prepare('SELECT id,title,kind,icon,start,end,note,calendar_type,lunar_start,color,revision,updated_at FROM events WHERE family = ? ORDER BY start,title').bind(family).all();
         return json({events:results});
       }
       if (Number(request.headers.get('content-length'))>16384) return json({error:'일정 내용이 너무 깁니다.'},413);
@@ -35,14 +35,18 @@ export default {
       if (!['POST','PUT'].includes(request.method)) return json({error:'지원하지 않는 요청입니다.'},405);
       const title=typeof body.title==='string'?body.title.trim():'';
       if (!title || title.length>80 || (typeof body.kind!=='string' || !Object.hasOwn(kinds,body.kind)) || !icons.includes(body.icon) || !validDate(body.start) || !validDate(body.end) || body.end<body.start || typeof body.note!=='string' || body.note.length>1000) return json({error:'제목, 날짜, 메모를 확인해 주세요.'},400);
-      const event={title,kind:body.kind,icon:body.icon,start:body.start,end:body.end,note:body.note.trim()}, now=new Date().toISOString();
+      const calendarType=body.calendar_type??'solar',color=body.color??'';
+      if(!['solar','lunar'].includes(calendarType)||typeof color!=='string'||(color!==''&&!Object.hasOwn(colors,color)))return json({error:'달력 종류와 색상을 확인해 주세요.'},400);
+      const lunar=calendarType==='lunar'?readLunar(body.lunar_start):null;
+      if(calendarType==='lunar'&&(!lunar||lunarToSolar(lunar)!==body.start))return json({error:'음력 날짜와 변환된 양력 날짜가 일치하지 않습니다.'},400);
+      const event={title,kind:body.kind,icon:body.icon,start:body.start,end:body.end,note:body.note.trim(),calendar_type:calendarType,lunar_start:lunar?JSON.stringify(lunar):'',color}, now=new Date().toISOString();
       if (request.method==='PUT') {
         if (typeof body.id!=='string'||!Number.isInteger(body.revision)) return json({error:'일정을 확인해 주세요.'},400);
-        const result=await env.DB.prepare('UPDATE events SET title=?,kind=?,icon=?,start=?,end=?,note=?,revision=revision+1,updated_at=? WHERE id=? AND family=? AND revision=?').bind(title,event.kind,event.icon,event.start,event.end,event.note,now,body.id,family,body.revision).run();
+        const result=await env.DB.prepare('UPDATE events SET title=?,kind=?,icon=?,start=?,end=?,note=?,calendar_type=?,lunar_start=?,color=?,revision=revision+1,updated_at=? WHERE id=? AND family=? AND revision=?').bind(title,event.kind,event.icon,event.start,event.end,event.note,event.calendar_type,event.lunar_start,event.color,now,body.id,family,body.revision).run();
         return result.meta.changes?json({ok:true}):json({error:'다른 가족이 먼저 수정했습니다. 창을 닫고 최신 일정을 다시 열어 주세요.'},409);
       }
       let expanded; try {expanded=expandEvent(event,body.repeat||'none',body.until);} catch(e) {return json({error:e.message},400);}
-      await env.DB.batch(expanded.map(e=>env.DB.prepare('INSERT INTO events (id,family,title,kind,icon,start,end,note,updated_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),family,e.title,e.kind,e.icon,e.start,e.end,e.note,now)));
+      await env.DB.batch(expanded.map(e=>env.DB.prepare('INSERT INTO events (id,family,title,kind,icon,start,end,note,calendar_type,lunar_start,color,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),family,e.title,e.kind,e.icon,e.start,e.end,e.note,e.calendar_type,e.lunar_start,e.color,now)));
       return json({ok:true,count:expanded.length},201);
     } catch (error) {console.error('Calendar API error',error.message);return json({error:'저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'},500);}
   }

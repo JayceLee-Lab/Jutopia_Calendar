@@ -61,3 +61,10 @@ test('API saves selected pastel color and lunar metadata, and rejects inconsiste
   assert.equal((await request(env,'POST',{...body,color:'untrusted-color'})).status,400);
   assert.equal((await (await request(env)).json()).events.length,3);
 });
+
+test('API accepts and preserves an explicitly unselected icon',async()=>{
+  const env=database();assert.equal((await request(env,'POST',{...event,icon:''})).status,201);
+  const saved=(await (await request(env)).json()).events[0];assert.equal(saved.icon,'');
+  assert.equal((await request(env,'PUT',{...saved,title:'아이콘 없는 일정 수정'})).status,200);
+  assert.equal((await (await request(env)).json()).events[0].icon,'');
+});

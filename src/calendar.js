@@ -2,6 +2,7 @@ import { lunarMonths } from './lunar-data.js';
 export const MIN_YEAR = 2020, MAX_YEAR = 2035;
 export const icons = ['','🏡','🌷','🎂','🎉','🍽️','✈️','🏥','🎒','💛','⭐','🎈','🎁','👨‍👩‍👧‍👦','🚗','📚','🎵','⚽','🛍️','🐾','🍀'];
 export const kinds = { suwon: { label: '수원 할머니', color: 'sage', icon: '🌷' }, ulsan: { label: '울산 할머니', color: 'peach', icon: '🏡' }, birthday: { label: '생일', color: 'lavender', icon: '🎂' }, family: { label: '가족 행사', color: 'blue', icon: '🎉' } };
+export const repeatLabels = {none:'반복 안 함',weekly:'매주',biweekly:'2주마다',monthly:'매월',yearly:'매년'};
 export const colors = {sage:'세이지',peach:'살구',lavender:'라벤더',blue:'하늘',pink:'분홍',butter:'버터',mint:'민트',lilac:'라일락',aqua:'아쿠아',sand:'모래'};
 export function eventColor(event) {return Object.hasOwn(colors,event.color)?event.color:kinds[event.kind].color;}
 export function readLunar(value) {try {return typeof value==='string'?JSON.parse(value):value;} catch {return null;}}
@@ -24,10 +25,22 @@ export function todayKey() { return new Intl.DateTimeFormat('sv-SE',{timeZone:'A
 export function validDate(s) { return typeof s==='string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number(s.slice(0,4))>=MIN_YEAR && Number(s.slice(0,4))<=MAX_YEAR && dateKey(parseDate(s))===s; }
 export function expandEvent(event, repeat='none', until=event.start) {
   if (!validDate(event.start) || !validDate(event.end) || event.end<event.start) throw new Error('시작일과 종료일을 확인해 주세요.');
-  if (!['none','biweekly','yearly'].includes(repeat)) throw new Error('반복 설정을 확인해 주세요.');
+  if (!Object.hasOwn(repeatLabels,repeat)) throw new Error('반복 설정을 확인해 주세요.');
   if (repeat==='none') return [event];
   if (!validDate(until) || until<event.start) throw new Error('반복 종료일을 확인해 주세요.');
   const out=[]; const duration=Math.round((parseDate(event.end)-parseDate(event.start))/86400000);
+  if (repeat==='monthly' && event.calendar_type==='lunar') {
+    const lunar=readLunar(event.lunar_start);
+    if(!lunar||lunarToSolar(lunar)!==event.start)throw new Error('음력 날짜를 확인해 주세요.');
+    for(const month of lunarMonths){
+      const occurrence={year:month[0],month:month[1],leap:Boolean(month[2]),day:Math.min(lunar.day,month[4])};
+      const start=lunarToSolar(occurrence);
+      if(start<event.start||start>until||!validDate(start))continue;
+      const end=addDays(start,duration);
+      if(validDate(end))out.push({...event,start,end,lunar_start:JSON.stringify(occurrence)});
+    }
+    return out;
+  }
   if (repeat==='yearly' && event.calendar_type==='lunar') {
     const lunar=readLunar(event.lunar_start);
     if(!lunar || lunarToSolar(lunar)!==event.start)throw new Error('음력 날짜를 확인해 주세요.');
@@ -46,7 +59,12 @@ export function expandEvent(event, repeat='none', until=event.start) {
     const end=addDays(start,duration);
     if (!validDate(end)) break;
     out.push({...event,start,end,...(event.calendar_type==='lunar'?{lunar_start:JSON.stringify(solarToLunar(start))}:{})});
-    if (repeat==='biweekly') start=addDays(start,14);
+    if (repeat==='weekly'||repeat==='biweekly') start=addDays(start,repeat==='weekly'?7:14);
+    else if(repeat==='monthly'){
+      const initial=parseDate(event.start),next=new Date(initial.getFullYear(),initial.getMonth()+i+1,1,12);
+      const day=Math.min(initial.getDate(),new Date(next.getFullYear(),next.getMonth()+1,0).getDate());
+      next.setDate(day);start=dateKey(next);
+    }
     else {
       const year=Number(event.start.slice(0,4))+i+1;
       start=`${year}${event.start.slice(4)}`;

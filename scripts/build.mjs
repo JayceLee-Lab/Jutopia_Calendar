@@ -8,7 +8,7 @@ for(const [path,file,type] of [
  ['/calendar.js','src/calendar.js','text/javascript; charset=utf-8'],
  ['/holidays.json','data/holidays.json','application/json; charset=utf-8']
 ]) assets[path]={body:await readFile(file,'utf8'),type};
-assets['/ju-topia-logo-v1.png']={base64:(await readFile('web/assets/ju-topia-logo-v1.png')).toString('base64'),type:'image/png'};
+assets['/ju-topia-logo-v2.png']={base64:(await readFile('web/assets/ju-topia-logo-v2.png')).toString('base64'),type:'image/png'};
 const source=await readFile('src/worker.js','utf8');
 const utility=(await readFile('src/lunar-data.js','utf8')).replaceAll('export ','')+'\n'+(await readFile('src/calendar.js','utf8')).replace(/^import .*;\n/,'').replaceAll('export ','');
 const worker=source.replace(/^import .*;\n/,'').replace('__ASSETS__',JSON.stringify(assets));

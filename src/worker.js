@@ -1,4 +1,4 @@
-import { validDate, expandEvent, icons, kinds, colors, lunarToSolar, readLunar, addDays } from './calendar.js';
+import { validDate, expandEvent, icons, kinds, colors, lunarToSolar, readLunar, addDays, repeatLabels } from './calendar.js';
 // Build injects the static asset map here. No network dependency for the UI.
 const assets = __ASSETS__;
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
@@ -51,7 +51,7 @@ export default {
         const current=existing.results[0];
         if(!current||current.revision!==body.revision)return json({error:'다른 가족이 먼저 수정했거나 삭제했습니다. 최신 일정을 다시 열어 주세요.'},409);
         const repeat=body.repeat??current.repeat_rule,until=repeat==='none'?'':body.until??current.repeat_until;
-        if(!['none','biweekly','yearly'].includes(repeat))return json({error:'반복 설정을 확인해 주세요.'},400);
+        if(!Object.hasOwn(repeatLabels,repeat))return json({error:'반복 설정을 확인해 주세요.'},400);
         const changed=repeat!==current.repeat_rule||until!==current.repeat_until;
         if(!changed){
           const updated={...event,series_id:current.series_id,repeat_rule:current.repeat_rule,repeat_until:current.repeat_until};

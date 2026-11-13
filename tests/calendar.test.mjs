@@ -97,3 +97,25 @@ test('a legacy independent record can gain recurrence without touching other ind
   const rows=(await (await request(env)).json()).events;assert.equal(rows.length,4);assert.ok(rows.some(e=>e.title==='기존 별도 일정'&&e.series_id===''));
   assert.equal((await request(env,'PUT',{...rows[0],repeat:'biweekly',until:'2026-01-01'})).status,400);assert.equal((await (await request(env)).json()).events.length,4);
 });
+
+test('weekly repeats retain weekday and duration across year boundaries',()=>{
+  const dates=expandEvent({...event,start:'2026-12-25',end:'2026-12-27'},'weekly','2027-01-15');
+  assert.deepEqual(dates.map(e=>[e.start,e.end]),[['2026-12-25','2026-12-27'],['2027-01-01','2027-01-03'],['2027-01-08','2027-01-10'],['2027-01-15','2027-01-17']]);
+});
+test('monthly repeats clamp to month end and restore the original day in later months',()=>{
+  const dates=expandEvent({...event,start:'2027-01-31',end:'2027-01-31'},'monthly','2027-05-31');
+  assert.deepEqual(dates.map(e=>e.start),['2027-01-31','2027-02-28','2027-03-31','2027-04-30','2027-05-31']);
+  assert.deepEqual(expandEvent({...event,start:'2028-01-31',end:'2028-01-31'},'monthly','2028-03-31').map(e=>e.start),['2028-01-31','2028-02-29','2028-03-31']);
+});
+test('lunar monthly recurrence includes leap months in chronological order',()=>{
+  const lunar={year:2025,month:5,day:1,leap:false},start=lunarToSolar(lunar);
+  const dates=expandEvent({...event,start,end:start,calendar_type:'lunar',lunar_start:JSON.stringify(lunar)},'monthly','2025-09-01');
+  assert.deepEqual(dates.map(e=>e.start),['2025-05-27','2025-06-25','2025-07-25','2025-08-23']);
+  assert.deepEqual(dates.map(e=>JSON.parse(e.lunar_start).leap),[false,false,true,false]);
+});
+test('weekly and monthly rules survive API readback and recurrence edits',async()=>{
+  const env=database();assert.equal((await request(env,'POST',{...event,repeat:'weekly',until:'2026-12-04'})).status,201);
+  let rows=(await (await request(env)).json()).events;assert.equal(rows.length,4);assert.ok(rows.every(e=>e.repeat_rule==='weekly'&&e.repeat_until==='2026-12-04'));
+  assert.equal((await request(env,'PUT',{...rows[0],repeat:'monthly',until:'2027-01-31'})).status,200);
+  rows=(await (await request(env)).json()).events;assert.deepEqual(rows.map(e=>e.start),['2026-11-13','2026-12-13','2027-01-13']);assert.ok(rows.every(e=>e.repeat_rule==='monthly'&&e.repeat_until==='2027-01-31'));
+});

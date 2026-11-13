@@ -24,7 +24,7 @@ test('schema upgrade preserves existing records, revisions, and original colors'
   const db=new DatabaseSync(':memory:');db.exec(readFileSync('migrations/0001_calendar.sql','utf8'));
   db.prepare('INSERT INTO events(id,family,title,kind,icon,start,end,note,revision,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run('old-record','existing-family','기존 가족 기록','ulsan','🏡','2026-11-13','2026-11-14','보존할 메모',7,'2026-11-01');
   db.exec(readFileSync('migrations/0002_lunar_colors.sql','utf8'));
-  const row=db.prepare('SELECT * FROM events').get();assert.equal(row.title,'기존 가족 기록');assert.equal(row.note,'보존할 메모');assert.equal(row.revision,7);assert.equal(row.calendar_type,'solar');assert.equal(row.lunar_start,'');assert.equal(eventColor(row),'sage');
+  const row=db.prepare('SELECT * FROM events').get();assert.equal(row.title,'기존 가족 기록');assert.equal(row.note,'보존할 메모');assert.equal(row.revision,7);assert.equal(row.calendar_type,'solar');assert.equal(row.lunar_start,'');assert.equal(eventColor(row),'ulsan');
 });
 test('Korean lunar conversion agrees with all bundled lunar public holidays through 2035',()=>{
   for(let year=2020;year<=2035;year++){
@@ -255,15 +255,50 @@ test('visit-line layout includes single-day visits without duplicating them and 
 });
 
 test('grandmother colors are fixed and reserved shades are rejected for other categories',async()=>{
-  const env=database();for(const [kind,color] of [['suwon','peach'],['ulsan','sage']]){assert.equal((await request(env,'POST',{...event,kind,color:'blue'})).status,201);const row=(await (await request(env)).json()).events.find(e=>e.kind===kind);assert.equal(row.color,color);assert.equal(eventColor({...row,color:'pink'}),color);}
-  for(const kind of ['birthday','family'])for(const color of ['peach','sage'])assert.equal((await request(env,'POST',{...event,kind,color})).status,400);
+  const env=database();for(const [kind,color] of [['suwon','suwon'],['ulsan','ulsan']]){assert.equal((await request(env,'POST',{...event,kind,color:'blue'})).status,201);const row=(await (await request(env)).json()).events.find(e=>e.kind===kind);assert.equal(row.color,color);assert.equal(eventColor({...row,color:'pink'}),color);}
+  for(const kind of ['birthday','family'])for(const color of ['suwon','ulsan'])assert.equal((await request(env,'POST',{...event,kind,color})).status,400);
   assert.equal((await request(env,'POST',{...event,kind:'family',color:'mint'})).status,201);
 });
-test('legacy reserved color readback uses the new palette without changing event identity or notes',async()=>{
+test('legacy sage and peach colors remain available without changing event identity or notes',async()=>{
   const env=database();await request(env,'POST',{...event,kind:'family',color:'pink'});const before=(await (await request(env)).json()).events[0];await env.DB.prepare("UPDATE events SET color='sage' WHERE id=?").bind(before.id).run();
-  const after=(await (await request(env)).json()).events[0];assert.equal(after.color,'blue');assert.equal(after.id,before.id);assert.equal(after.note,before.note);assert.equal(after.revision,before.revision);assert.equal(after.start,before.start);assert.equal(eventColor({...after,kind:'birthday',color:'peach'}),'lavender');
+  const after=(await (await request(env)).json()).events[0];assert.equal(after.color,'sage');assert.equal(after.id,before.id);assert.equal(after.note,before.note);assert.equal(after.revision,before.revision);assert.equal(after.start,before.start);assert.equal(eventColor({...after,kind:'birthday',color:'peach'}),'peach');
 });
 test('changing a grandmother category across a series enforces its new fixed color',async()=>{
-  const env=database();await request(env,'POST',{...event,kind:'suwon',repeat:'weekly',until:'2026-11-20'});const rows=(await (await request(env)).json()).events;assert.ok(rows.every(e=>e.color==='peach'));
-  assert.equal((await request(env,'PUT',{...rows[0],kind:'ulsan',color:'pink',apply_scope:'series'})).status,200);assert.ok((await (await request(env)).json()).events.every(e=>e.kind==='ulsan'&&e.color==='sage'));
+  const env=database();await request(env,'POST',{...event,kind:'suwon',repeat:'weekly',until:'2026-11-20'});const rows=(await (await request(env)).json()).events;assert.ok(rows.every(e=>e.color==='suwon'));
+  assert.equal((await request(env,'PUT',{...rows[0],kind:'ulsan',color:'pink',apply_scope:'series'})).status,200);assert.ok((await (await request(env)).json()).events.every(e=>e.kind==='ulsan'&&e.color==='ulsan'));
+});
+
+
+test('sage and peach are available for birthdays and family events on creation and edit',async()=>{
+  const env=database();for(const kind of ['birthday','family'])for(const color of ['sage','peach']){
+    assert.equal((await request(env,'POST',{...event,kind,color})).status,201);
+    const row=(await (await request(env)).json()).events.find(e=>e.kind===kind&&e.color===color);assert.ok(row);
+    const changed=color==='sage'?'peach':'sage';assert.equal((await request(env,'PUT',{...row,color:changed})).status,200);
+    assert.equal((await (await request(env)).json()).events.find(e=>e.id===row.id).color,changed);
+  }
+});
+test('restoring visit names is family-scoped, backed up, repeat-safe, and idempotent',async()=>{
+  const env=database();await request(env,'POST',{...event,kind:'suwon',title:'수원 할머니 방문',repeat:'weekly',until:'2026-11-27'});
+  await request(env,'POST',{...event,kind:'ulsan',title:'울산 할머니 방문'});await request(env,'POST',{...event,kind:'suwon',title:'수원 할머니와 여행'});await request(env,'POST',{...event,title:'수원'});
+  await request(env,'POST',{...event,kind:'suwon',title:'수원 할머니 방문'},familyB);
+  await env.DB.prepare("UPDATE events SET title=CASE kind WHEN 'suwon' THEN '수원' ELSE '울산' END WHERE title IN ('수원 할머니 방문','울산 할머니 방문')").run();
+  const before=(await (await request(env)).json()).events,foreign=(await (await request(env,'GET',null,familyB)).json()).events;
+  const reply=await request(env,'PATCH',{action:'restore-visit-titles'});assert.equal(reply.status,200);assert.equal((await reply.json()).updated_count,4);
+  const after=(await (await request(env)).json()).events;assert.equal(after.length,before.length);
+  for(const old of before){const row=after.find(e=>e.id===old.id),renamed=(old.kind==='suwon'&&old.title==='수원')||(old.kind==='ulsan'&&old.title==='울산');
+    assert.equal(row.title,renamed?(old.kind==='suwon'?'수원 할머니 방문':'울산 할머니 방문'):old.title);
+    assert.equal(row.revision,old.revision+(renamed?1:0));
+    for(const key of ['id','start','end','note','icon','series_id','repeat_rule','repeat_until','color'])assert.equal(row[key],old[key]);
+  }
+  assert.deepEqual((await (await request(env,'GET',null,familyB)).json()).events,foreign);
+  assert.equal((await (await request(env,'PATCH',{action:'restore-visit-titles'})).json()).updated_count,0);
+  const backups=(await env.DB.prepare("SELECT payload FROM maintenance_log WHERE status='backup'").all()).results;assert.equal(backups.length,1);assert.equal(JSON.parse(backups[0].payload).length,4);
+  assert.equal((await request(env,'PUT',before.find(e=>e.title==='울산'))).status,409);
+  assert.equal((await request(env,'PATCH',{action:'unknown'})).status,400);assert.equal((await request(env,'PATCH',{action:'restore-visit-titles'},'short')).status,401);
+});
+test('old clients saving short grandmother defaults receive restored titles',async()=>{
+  const env=database();for(const [kind,title] of [['suwon','수원'],['ulsan','울산']]){
+    assert.equal((await request(env,'POST',{...event,kind,title})).status,201);
+    assert.equal((await (await request(env)).json()).events.find(e=>e.kind===kind).title,title+' 할머니 방문');
+  }
 });

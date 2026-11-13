@@ -157,7 +157,8 @@ main>.intro:last-child{justify-content:center;text-align:center;padding:15px 4px
 /* Compact weeks and unfilled, thin grandmother visit lines. */
 .calendar-week{min-height:100px}.calendar-week .date-line{min-height:32px;margin-bottom:2px}.calendar-week>.day-cell{padding-top:4px;padding-bottom:4px}.calendar-week .day-icons{padding-top:3px}
 .calendar-week>.day-cell>.holiday-name{display:block;align-self:start;margin:1px 0 3px;line-height:1.4;flex-basis:auto}
-.period-bar.grandma-line{height:.55rem;min-height:0;background:currentColor;border:0;border-radius:0;padding:0;margin:1px 0;line-height:0;font-size:0}.grandma-line.peach{color:#dda57f}.grandma-line.sage{color:#90ad7a}
+:root{--suwon:#FF9292;--ulsan:#FFE699}.suwon{background:var(--suwon);color:#713c3c}.ulsan{background:var(--ulsan);color:#6e581d}.dot.suwon{background:var(--suwon)}.dot.ulsan{background:var(--ulsan)}
+.period-bar.grandma-line{height:.55rem;min-height:0;background:currentColor;border:0;border-radius:0;padding:0;margin:1px 0;line-height:0;font-size:0}.grandma-line.suwon{color:var(--suwon)}.grandma-line.ulsan{color:var(--ulsan)}
 #color-note{margin-bottom:0}.color-option:disabled{opacity:1;cursor:default}
 @media(max-width:600px){
  .topbar{padding-top:9px;padding-bottom:9px}.reading-toolbar{padding-top:8px}.font-controls button{min-height:30px;min-width:32px;padding:2px 9px}.font-controls output{min-width:48px}.font-reset{min-height:30px;padding:3px 9px}

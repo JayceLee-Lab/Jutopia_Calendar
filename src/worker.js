@@ -27,6 +27,17 @@ export default {
       const raw=await request.text(); if (raw.length>16384) return json({error:'일정 내용이 너무 깁니다.'},413);
       let body; try { body=JSON.parse(raw); } catch {return json({error:'올바른 JSON이 필요합니다.'},400);}
       if (!body || typeof body!=='object') return json({error:'일정 내용을 확인해 주세요.'},400);
+      if(request.method==='PATCH'){
+        if(body.action!=='restore-visit-titles')return json({error:'지원하지 않는 요청입니다.'},400);
+        const legacy="family=? AND ((kind='suwon' AND title='수원') OR (kind='ulsan' AND title='울산'))";
+        const {results:rows}=await env.DB.prepare('SELECT * FROM events WHERE '+legacy).bind(family).all();
+        if(!rows.length)return json({ok:true,updated_count:0});
+        const now=new Date().toISOString(),results=await env.DB.batch([
+          env.DB.prepare("INSERT OR IGNORE INTO maintenance_log(key,status,payload,updated_at) VALUES (?,'backup',?,?)").bind('restore-visit-titles-v2:'+family,JSON.stringify(rows),now),
+          env.DB.prepare('UPDATE events SET title=CASE kind WHEN \'suwon\' THEN ? ELSE ? END,revision=revision+1,updated_at=? WHERE '+legacy).bind(kinds.suwon.title,kinds.ulsan.title,now,family)
+        ]);
+        return json({ok:true,updated_count:results[1].meta.changes});
+      }
       if (request.method==='DELETE') {
         if (typeof body.id!=='string'||!Number.isInteger(body.revision)) return json({error:'일정을 확인해 주세요.'},400);
         const scope=body.delete_scope??'one';
@@ -44,12 +55,13 @@ export default {
         return result.meta.changes?json({ok:true,deleted_count:1}):json({error:'다른 가족이 수정했거나 삭제한 일정입니다. 최신 일정을 확인해 주세요.'},409);
       }
       if (!['POST','PUT'].includes(request.method)) return json({error:'지원하지 않는 요청입니다.'},405);
-      const title=typeof body.title==='string'?body.title.trim():'';
+      let title=typeof body.title==='string'?body.title.trim():'';
+      if((body.kind==='suwon'&&title==='수원')||(body.kind==='ulsan'&&title==='울산'))title=kinds[body.kind].title;
       if (!title || title.length>80 || (typeof body.kind!=='string' || !Object.hasOwn(kinds,body.kind)) || !icons.includes(body.icon) || !validDate(body.start) || !validDate(body.end) || body.end<body.start || typeof body.note!=='string' || body.note.length>1000) return json({error:'제목, 날짜, 메모를 확인해 주세요.'},400);
       const calendarType=body.calendar_type??'solar',requestedColor=body.color??'';
       const color=eventColor({...body,color:requestedColor});
       if(!['solar','lunar'].includes(calendarType)||typeof requestedColor!=='string'||(requestedColor!==''&&!Object.hasOwn(colors,requestedColor)))return json({error:'달력 종류와 색상을 확인해 주세요.'},400);
-      if(!['suwon','ulsan'].includes(body.kind)&&['sage','peach'].includes(requestedColor))return json({error:'살구와 세이지는 할머니 방문 전용 색상입니다. 다른 색상을 선택해 주세요.'},400);
+      if(!['suwon','ulsan'].includes(body.kind)&&['suwon','ulsan'].includes(requestedColor))return json({error:'할머니 방문 전용 색상입니다. 다른 색상을 선택해 주세요.'},400);
       const lunar=calendarType==='lunar'?readLunar(body.lunar_start):null;
       if(calendarType==='lunar'&&(!lunar||lunarToSolar(lunar)!==body.start))return json({error:'음력 날짜와 변환된 양력 날짜가 일치하지 않습니다.'},400);
       const event={title,kind:body.kind,icon:body.icon,start:body.start,end:body.end,note:body.note.trim(),calendar_type:calendarType,lunar_start:lunar?JSON.stringify(lunar):'',color}, now=new Date().toISOString();
